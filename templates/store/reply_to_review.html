@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="mb-4">Répondre à l'avis</h2>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5>Avis de {{ review.user.username }}</h5>
+            <div class="rating-stars text-warning mb-2">
+                {% for i in "12345" %}
+                    {% if i|add:0 <= review.rating %}
+                        <i class="fas fa-star"></i>
+                    {% else %}
+                        <i class="far fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <p>{{ review.comment }}</p>
+            <hr>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="reply" class="form-label">Votre réponse</label>
+                    <textarea name="reply" id="reply" class="form-control" rows="4" placeholder="Saisissez votre réponse ici..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Envoyer</button>
+                <a href="{% url 'store:product_detail' review.product.id %}" class="btn btn-secondary">Annuler</a>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .rating-stars {
+        font-size: 1.2rem;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Formules d'abonnement{% endblock %}
+{% block content %}
+    <h2>Formules d'abonnement</h2>
+
+    <!-- Statut actuel de l'abonnement -->
+    <div class="alert alert-info">
+        <p><strong>Votre abonnement actuel :</strong> {{ subscription.plan|title }} {% if subscription.active %} (Actif) {% else %} (Inactif) {% endif %}</p>
+    </div>
+
+    <!-- Tableau comparatif des formules -->
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 text-center">
+                    <div class="card-header">
+                        <h3>Gratuit</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><strong>0 € / mois</strong></p>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Gestion de base des produits</li>
+                            <li class="list-group-item">Statistiques de ventes simples</li>
+                            <li class="list-group-item">Support par email</li>
+                            <li class="list-group-item text-muted">Statistiques avancées non incluses</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        {% if subscription.plan == 'free' and subscription.active %}
+                            <button class="btn btn-secondary" disabled>Plan actuel</button>
+                        {% else %}
+                            <form method="post" action="{% url 'store:create_subscription' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="plan" value="free">
+                                <button type="submit" class="btn btn-primary">Passer au plan Gratuit</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 text-center">
+                    <div class="card-header">
+                        <h3>Pro</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><strong>Prix : Consultez les détails sur Stripe</strong></p>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Tout du plan Gratuit</li>
+                            <li class="list-group-item">Statistiques avancées (localisation, catégories)</li>
+                            <li class="list-group-item">Support prioritaire</li>
+                            <li class="list-group-item">Rapports personnalisés</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        {% if subscription.plan == 'pro' and subscription.active %}
+                            <button class="btn btn-secondary" disabled>Plan actuel</button>
+                        {% else %}
+                            <form method="post" action="{% url 'store:create_subscription' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="plan" value="pro">
+                                <button type="submit" class="btn btn-primary">Passer au plan Pro</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

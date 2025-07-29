@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ address.description|truncatechars:50 }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{% static 'store/css/geolocation.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h4 class="mb-0">{{ address.description }}</h4>
+                </div>
+                <div class="card-body">
+                    {% if address.photo %}
+                    <img src="{{ address.photo.url }}" class="img-fluid rounded mb-3" alt="Photo du lieu">
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-map-marker-alt me-2"></i>Localisation</h6>
+                            <p class="text-muted">
+                                {{ address.quartier.name }}<br>
+                                {{ address.prefecture.name }}<br>
+                                {{ address.region.name }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-gps-fixed me-2"></i>Coordonnées</h6>
+                            <p class="coordinates-display">
+                                {{ address.latitude|floatformat:6 }}, {{ address.longitude|floatformat:6 }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if address.landmark %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-landmark me-2"></i>Point de repère</h6>
+                        <p>{{ address.landmark }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Carte -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-map me-2"></i>Carte</h6>
+                        <div class="map-container">
+                            <div id="map" style="height: 300px; border-radius: 8px;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'store:address_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Retour à la liste
+                        </a>
+                        <a href="{{ address.google_maps_link }}" target="_blank" class="btn btn-success">
+                            <i class="fas fa-external-link-alt me-1"></i>Ouvrir dans Google Maps
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informations</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Statut :</strong>
+                        <span class="location-status {{ address.status }} ms-2">
+                            {% if address.status == 'validated' %}
+                                <i class="fas fa-check-circle me-1"></i>Validée
+                            {% elif address.status == 'pending' %}
+                                <i class="fas fa-clock me-1"></i>En attente
+                            {% else %}
+                                <i class="fas fa-times-circle me-1"></i>Rejetée
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Utilisations :</strong>
+                        <span class="badge bg-secondary ms-2">{{ address.usage_count }}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Ajoutée par :</strong>
+                        <span class="text-muted">{{ address.created_by.username }}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Date d'ajout :</strong>
+                        <span class="text-muted">{{ address.created_at|date:"d/m/Y à H:i" }}</span>
+                    </div>
+                    
+                    {% if address.updated_at != address.created_at %}
+                    <div class="mb-3">
+                        <strong>Dernière modification :</strong>
+                        <span class="text-muted">{{ address.updated_at|date:"d/m/Y à H:i" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if user.is_authenticated %}
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-thumbs-up me-2"></i>Validation</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Cette adresse vous semble-t-elle correcte ?</p>
+                    <div class="btn-group w-100" role="group">
+                        <button class="btn btn-outline-success btn-sm" onclick="validateAddress('correct')">
+                            <i class="fas fa-check me-1"></i>Correcte
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="validateAddress('needs_update')">
+                            <i class="fas fa-edit me-1"></i>À modifier
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="validateAddress('incorrect')">
+                            <i class="fas fa-times me-1"></i>Incorrecte
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'store/js/geolocation.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser la carte
+    const geo = window.guineaGeo;
+    const map = geo.initMap('map', {
+        center: [{{ address.latitude }}, {{ address.longitude }}],
+        zoom: 15
+    });
+    
+    // Ajouter le marqueur
+    const marker = L.marker([{{ address.latitude }}, {{ address.longitude }}]).addTo(map);
+    marker.bindPopup(`
+        <strong>{{ address.description|escapejs }}</strong><br>
+        <small>{{ address.quartier.name }}, {{ address.prefecture.name }}</small>
+    `).openPopup();
+});
+
+function validateAddress(type) {
+    // Fonction pour valider l'adresse (à implémenter)
+    console.log('Validation:', type);
+    // Ici vous pouvez ajouter une requête AJAX pour enregistrer la validation
+}
+</script>
+{% endblock %}

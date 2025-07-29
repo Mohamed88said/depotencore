@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Signaler un problème</h2>
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        {% if product_id %}
+            <input type="hidden" name="product_id" value="{{ product_id }}">
+        {% endif %}
+        {% if user_id %}
+            <input type="hidden" name="user_id" value="{{ user_id }}">
+        {% endif %}
+        <div class="mb-3">
+            <label for="id_reason" class="form-label">Motif du signalement</label>
+            {{ form.reason }}
+        </div>
+        <div class="mb-3">
+            <label for="id_description" class="form-label">Description</label>
+            {{ form.description }}
+        </div>
+        <button type="submit" class="btn btn-primary">Envoyer le signalement</button>
+        <a href="{% if product_id %}{% url 'store:product_detail' product_id %}{% else %}{% url 'store:seller_public_profile' user.username %}{% endif %}" class="btn btn-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}

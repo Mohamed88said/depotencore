@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="container mt-5">
+    <h1 class="mb-4">Programme de Fidélité</h1>
+    <div class="card mb-4">
+      <div class="card-body">
+        <h3>Vos Points</h3>
+        <p class="lead">{{ points }} points</p>
+        <p>Gagnez des points à chaque achat et échangez-les contre des récompenses !</p>
+      </div>
+    </div>
+    <h2>Récompenses Disponibles</h2>
+    <div class="row">
+      {% for reward in rewards %}
+        <div class="col-md-4 mb-3">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">{{ reward.name }}</h5>
+              <p class="card-text">
+                {{ reward.points_required }} points requis
+                {% if reward.discount_percentage %}
+                  <br>Réduction : {{ reward.discount_percentage }}%
+                {% endif %}
+                {% if reward.product %}
+                  <br>Produit : {{ reward.product.name }}
+                {% endif %}
+              </p>
+              {% if points >= reward.points_required %}
+                <a href="#" class="btn btn-primary">Échanger</a>
+              {% else %}
+                <button class="btn btn-secondary" disabled>Points insuffisants</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

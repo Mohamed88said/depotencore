@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Répondre à une demande | LuxeShop{% endblock %}
+{% block content %}
+<main class="container my-5">
+    <h1 class="fs-2 fw-bold text-gradient mb-4">
+        <i class="fas fa-reply me-2"></i>Répondre à une demande
+    </h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="card-title">Demande pour : {{ product_request.product.name }}</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Utilisateur :</strong> {{ product_request.user.username|default:product_request.email }}</p>
+            <p><strong>Date :</strong> {{ product_request.created_at|date:"d/m/Y H:i" }}</p>
+            <p><strong>Message :</strong> {{ product_request.message|default:"Aucun message" }}</p>
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="form-group mb-3">
+                    <label for="response" class="form-label">Votre réponse :</label>
+                    <textarea class="form-control" id="response" name="response" rows="4" placeholder="Entrez votre message ici..."></textarea>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="restock_quantity" class="form-label">Restocker (quantité) :</label>
+                    <input type="number" class="form-control" id="restock_quantity" name="restock_quantity" min="0" placeholder="Quantité à ajouter">
+                </div>
+                <button type="submit" class="btn btn-primary">Envoyer</button>
+                <a href="{% url 'store:home' %}" class="btn btn-secondary">Retour</a>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Modifier le panier{% endblock %}
+{% block content %}
+    <h2>Modifier la quantité pour {{ cart_item.product.name }}</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="quantity">Quantité :</label>
+                            <input type="number" name="quantity" value="{{ cart_item.quantity }}" min="0" max="{{ cart_item.product.stock }}" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Mettre à jour</button>
+                        <a href="{% url 'store:cart' %}" class="btn btn-secondary">Annuler</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

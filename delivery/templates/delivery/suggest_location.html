@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Choisir une localisation pour la commande #{{ order.id }}</h2>
+{% if suggestions %}
+    <h3>Suggestions de localisation :</h3>
+    <ul>
+    {% for suggestion in suggestions %}
+        <li>
+            {{ suggestion.location.description }} ({{ suggestion.distance|floatformat:2 }} km)
+            <a href="{% url 'delivery:submit_location' order.id %}?location_id={{ suggestion.location.id }}">Choisir cette localisation</a>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>Aucune localisation trouvée à proximité. Veuillez soumettre une nouvelle localisation.</p>
+{% endif %}
+<a href="{% url 'delivery:submit_location' order.id %}">Soumettre une nouvelle localisation</a>
+<script>
+    // Récupérer la position GPS de l'utilisateur
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            window.location.href = "{% url 'delivery:suggest_location' order.id %}?latitude=" + position.coords.latitude + "&longitude=" + position.coords.longitude;
+        });
+    }
+</script>
+{% endblock %}

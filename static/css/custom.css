@@ -1,0 +1,17 @@
+/* Surcharge pour -webkit-text-size-adjust */
+body {
+    -webkit-text-size-adjust: 100%; /* Compatible avec WebKit et navigateurs mobiles */
+    text-size-adjust: 100%; /* Propriété standard pour Chrome 54+, Edge 79+ */
+}
+
+/* Surcharge pour text-align: -webkit-match-parent */
+th {
+    text-align: -webkit-match-parent; /* Garder pour compatibilité avec anciens navigateurs WebKit */
+    text-align: match-parent; /* Propriété standard pour Safari 15.4+ */
+}
+
+/* Surcharge pour print-color-adjust */
+.form-check-input {
+    -webkit-print-color-adjust: exact; /* Compatibilité avec Chrome 17+, Edge 79+, etc. */
+    print-color-adjust: exact; /* Propriété standard pour Firefox, Safari */
+}

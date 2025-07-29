@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Modifier le statut de la commande{% endblock %}
+{% block content %}
+    <h2>Modifier le statut de la commande #{{ order.id }}</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary">Mettre à jour</button>
+                        <a href="{% url 'store:seller_order_list' %}" class="btn btn-secondary">Annuler</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

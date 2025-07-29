@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load store_tags %}
+{% block title %}Commandes du vendeur{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="mb-4">Vos commandes</h2>
+    <div class="mb-3">
+        <a href="{% url 'returns:return_list' %}" class="btn btn-info">
+            <i class="fas fa-list me-2"></i>Voir toutes les demandes de retour
+        </a>
+        <a href="{% url 'admin_panel:delivery_list' %}" class="btn btn-primary ms-2">
+            <i class="fas fa-truck me-2"></i>Gérer les livraisons
+        </a>
+    </div>
+    {% if orders %}
+        <div class="list-group">
+            {% for order in orders %}
+                <div class="list-group-item mb-3 shadow-sm rounded">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">Commande #{{ order.order.id }} - {{ order.order.created_at|date:"d/m/Y H:i" }}</h5>
+                            <p class="mb-1"><strong>Acheteur :</strong> {{ order.order.user.username }}</p>
+                            <p class="mb-1"><strong>Total :</strong> {{ order.total }} €</p>
+                            <p class="mb-1"><strong>Statut :</strong> {{ order.order.get_status_display }}</p>
+                            {% if order.order.return_requests.exists %}
+                                <p class="mb-1 text-warning">
+                                    <strong>Demande de retour :</strong> 
+                                    {% for return_request in order.order.return_requests.all %}
+                                        Demande #{{ return_request.id }} ({{ return_request.status }})
+                                    {% endfor %}
+                                </p>
+                            {% endif %}
+                            {% if order.order.deliveries.exists %}
+                                <p class="mb-1">
+                                    <strong>Livraison :</strong>
+                                    {% for delivery in order.order.deliveries.all %}
+                                        {{ delivery.get_status_display }}
+                                        {% if delivery.location %}
+                                            <br>{{ delivery.location.description }}
+                                            {% if delivery.location.photo %}
+                                                <br><img src="{{ delivery.location.photo.url }}" alt="Localisation" style="max-width: 100px;">
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </p>
+                            {% else %}
+                                <p class="mb-1"><strong>Livraison :</strong> Aucune livraison associée</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <button class="btn btn-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#orderModal{{ order.order.id }}">Voir les détails</button>
+                            <form action="{% url 'store:update_order_status' order.order.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <select name="status" class="form-select form-select-sm d-inline-block w-auto me-2">
+                                    {% for status, label in order.order.STATUS_CHOICES %}
+                                        <option value="{{ status }}" {% if order.order.status == status %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm">Mettre à jour</button>
+                            </form>
+                            {% if order.order.deliveries.exists %}
+                                <a href="{% url 'delivery:assign_delivery' order.order.deliveries.first.id %}" class="btn btn-warning btn-sm mt-2">
+                                    <i class="fas fa-truck me-1"></i>Assigner un livreur
+                                </a>
+                            {% endif %}
+                            {% if order.order.return_requests.exists %}
+                                {% for return_request in order.order.return_requests.all %}
+                                    <a href="{% url 'returns:return_review' return_request.id %}" class="btn btn-warning btn-sm mt-2">
+                                        <i class="fas fa-undo me-1"></i>Examiner la demande #{{ return_request.id }}
+                                    </a>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal -->
+                <div class="modal fade" id="orderModal{{ order.order.id }}" tabindex="-1" aria-labelledby="orderModalLabel{{ order.order.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="orderModalLabel{{ order.order.id }}">Commande #{{ order.order.id }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p><strong>Date :</strong> {{ order.order.created_at|date:"d/m/Y H:i" }}</p>
+                                <p><strong>Acheteur :</strong> {{ order.order.user.username }}</p>
+                                <p><strong>Statut :</strong> {{ order.order.get_status_display }}</p>
+                                {% if order.order.deliveries.exists %}
+                                    <h6 class="mt-3">Livraison</h6>
+                                    {% for delivery in order.order.deliveries.all %}
+                                        <p><strong>Statut :</strong> {{ delivery.get_status_display }}</p>
+                                        {% if delivery.location %}
+                                            <p><strong>Localisation :</strong> {{ delivery.location.description }}</p>
+                                            {% if delivery.location.photo %}
+                                                <img src="{{ delivery.location.photo.url }}" alt="Localisation" style="max-width: 200px;">
+                                            {% endif %}
+                                        {% endif %}
+                                        <p><strong>Livreur :</strong> {{ delivery.delivery_person.username|default:"Non assigné" }}</p>
+                                    {% endfor %}
+                                {% endif %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Produit</th>
+                                            <th>Quantité</th>
+                                            <th>Prix unitaire</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in order.items %}
+                                            <tr>
+                                                <td>{{ item.product.name }}</td>
+                                                <td>{{ item.quantity }}</td>
+                                                <td>{{ item.price }} €</td>
+                                                <td>{{ item.price|multiply:item.quantity }} €</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                <p><strong>Total général :</strong> {{ order.total }} €</p>
+                                {% if order.order.return_requests.exists %}
+                                    <h6 class="mt-3">Demandes de retour</h6>
+                                    <ul>
+                                        {% for return_request in order.order.return_requests.all %}
+                                            <li>
+                                                Demande #{{ return_request.id }} - {{ return_request.reason }} (Statut : {{ return_request.status }})
+                                                <a href="{% url 'returns:return_review' return_request.id %}" class="btn btn-outline-warning btn-sm ms-2">
+                                                    Examiner
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-4">
+            <h5 class="text-muted">Vous n'avez aucune commande.</h5>
+            <a href="{% url 'store:product_list' %}" class="btn btn-primary mt-3">Voir les produits</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

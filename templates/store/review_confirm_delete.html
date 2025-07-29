@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Supprimer l'avis{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Supprimer l'avis</h2>
+    <p>Êtes-vous sûr de vouloir supprimer l'avis suivant ?</p>
+    <p><strong>Produit :</strong> {{ review.product.name }}</p>
+    <p><strong>Auteur :</strong> {{ review.user.username }}</p>
+    <p><strong>Note :</strong> {{ review.rating }} / 5</p>
+    <p><strong>Commentaire :</strong> {{ review.comment }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Oui, supprimer</button>
+        <a href="{% url 'store:product_detail' review.product.id %}" class="btn btn-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}

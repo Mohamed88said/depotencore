@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contribuer une adresse{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{% static 'store/css/geolocation.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-map-plus me-2"></i>Contribuer une nouvelle adresse</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aidez à enrichir la base de données d'adresses de la Guinée en ajoutant une nouvelle localisation.
+                        Votre contribution sera vérifiée avant d'être publiée.
+                    </div>
+                    
+                    <form method="post" enctype="multipart/form-data" id="contributeForm">
+                        {% csrf_token %}
+                        
+                        <!-- Sélection administrative -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.region.id_for_label }}" class="form-label fw-bold">Région</label>
+                                {{ form.region }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.prefecture.id_for_label }}" class="form-label fw-bold">Préfecture</label>
+                                {{ form.prefecture }}
+                            </div>
+                            <div class="col-md-4">
+                                <label for="{{ form.quartier.id_for_label }}" class="form-label fw-bold">Quartier</label>
+                                {{ form.quartier }}
+                            </div>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label fw-bold">
+                                Description de l'adresse
+                            </label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <!-- Point de repère -->
+                        <div class="mb-3">
+                            <label for="{{ form.landmark.id_for_label }}" class="form-label fw-bold">
+                                Point de repère (optionnel)
+                            </label>
+                            {{ form.landmark }}
+                        </div>
+                        
+                        <!-- Carte interactive -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Position sur la carte</label>
+                            <div class="map-container">
+                                <div id="map" style="height: 400px; border-radius: 8px;"></div>
+                            </div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm geolocation-btn" id="getCurrentLocation">
+                                    <i class="fas fa-crosshairs me-1"></i>Ma position actuelle
+                                </button>
+                                <small class="text-muted ms-3">
+                                    Cliquez sur la carte pour placer le marqueur
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Coordonnées (cachées) -->
+                        {{ form.latitude }}
+                        {{ form.longitude }}
+                        
+                        <!-- Photo -->
+                        <div class="mb-3">
+                            <label for="{{ form.photo.id_for_label }}" class="form-label fw-bold">
+                                Photo du lieu (optionnel)
+                            </label>
+                            {{ form.photo }}
+                            <div class="form-text">
+                                Une photo aide à identifier le lieu et valider l'adresse
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'store:address_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Retour
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-paper-plane me-1"></i>Soumettre l'adresse
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'store/js/geolocation.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser la carte
+    const geo = window.guineaGeo;
+    const map = geo.initMap('map', {
+        center: [9.5092, -13.7122], // Conakry par défaut
+        zoom: 10
+    });
+    
+    let marker = null;
+    const latInput = document.getElementById('{{ form.latitude.id_for_label }}');
+    const lonInput = document.getElementById('{{ form.longitude.id_for_label }}');
+    
+    // Fonction pour ajouter/déplacer le marqueur
+    function setMarker(lat, lng) {
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+        latInput.value = lat.toFixed(6);
+        lonInput.value = lng.toFixed(6);
+        
+        marker.on('dragend', function(e) {
+            const pos = e.target.getLatLng();
+            latInput.value = pos.lat.toFixed(6);
+            lonInput.value = pos.lng.toFixed(6);
+        });
+    }
+    
+    // Clic sur la carte
+    map.on('click', function(e) {
+        setMarker(e.latlng.lat, e.latlng.lng);
+    });
+    
+    // Géolocalisation
+    document.getElementById('getCurrentLocation').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Localisation...';
+        
+        geo.getCurrentPosition().then(coords => {
+            map.setView([coords.latitude, coords.longitude], 15);
+            setMarker(coords.latitude, coords.longitude);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
+        }).catch(error => {
+            alert('Erreur de géolocalisation: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
+        });
+    });
+    
+    // Configuration des sélecteurs en cascade
+    window.GuineaGeoUtils.setupCascadingSelectors('id_region', 'id_prefecture', 'id_quartier');
+});
+</script>
+{% endblock %}

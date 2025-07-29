@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Modifier un produit{% endblock %}
+{% block content %}
+    <div class="container my-5">
+        <h2 class="mb-4">{% if product %}Modifier{% else %}Ajouter{% endif %} un produit</h2>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <!-- Nom -->
+                        <div class="col-md-6">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.name.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Catégorie -->
+                        <div class="col-md-6">
+                            <label for="{{ form.category.id_for_label }}" class="form-label">{{ form.category.label }}</label>
+                            {{ form.category }}
+                            {% if form.category.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.category.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Description -->
+                        <div class="col-12">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.description.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Prix -->
+                        <div class="col-md-6">
+                            <label for="{{ form.price.id_for_label }}" class="form-label">{{ form.price.label }}</label>
+                            {{ form.price }}
+                            {% if form.price.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.price.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Stock -->
+                        <div class="col-md-6">
+                            <label for="{{ form.stock.id_for_label }}" class="form-label">{{ form.stock.label }}</label>
+                            {{ form.stock }}
+                            {% if form.stock.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.stock.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Taille -->
+                        <div class="col-md-6">
+                            <label for="{{ form.size.id_for_label }}" class="form-label">{{ form.size.label }}</label>
+                            {{ form.size }}
+                            {% if form.size.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.size.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Marque -->
+                        <div class="col-md-6">
+                            <label for="{{ form.brand.id_for_label }}" class="form-label">{{ form.brand.label }}</label>
+                            {{ form.brand }}
+                            {% if form.brand.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.brand.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Couleur -->
+                        <div class="col-md-6">
+                            <label for="{{ form.color.id_for_label }}" class="form-label">{{ form.color.label }}</label>
+                            {{ form.color }}
+                            {% if form.color.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.color.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Matériau -->
+                        <div class="col-md-6">
+                            <label for="{{ form.material.id_for_label }}" class="form-label">{{ form.material.label }}</label>
+                            {{ form.material }}
+                            {% if form.material.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.material.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <!-- Images -->
+                        <div class="col-12">
+                            <label class="form-label">Images du produit <small class="text-muted">(Préférez des images carrées, ex. 500x500px, pour un meilleur affichage)</small></label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    {{ form.image1.label_tag }}
+                                    {{ form.image1 }}
+                                    <div class="image-preview mt-2" id="preview-image1">
+                                        {% if product.image1 %}
+                                            <img src="{{ product.image1.url }}" alt="Aperçu Image 1" style="max-width: 100px; max-height: 100px; object-fit: cover;">
+                                        {% endif %}
+                                    </div>
+                                    {% if form.image1.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.image1.errors|join:", " }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form.image2.label_tag }}
+                                    {{ form.image2 }}
+                                    <div class="image-preview mt-2" id="preview-image2">
+                                        {% if product.image2 %}
+                                            <img src="{{ product.image2.url }}" alt="Aperçu Image 2" style="max-width: 100px; max-height: 100px; object-fit: cover;">
+                                        {% endif %}
+                                    </div>
+                                    {% if form.image2.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.image2.errors|join:", " }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form.image3.label_tag }}
+                                    {{ form.image3 }}
+                                    <div class="image-preview mt-2" id="preview-image3">
+                                        {% if product.image3 %}
+                                            <img src="{{ product.image3.url }}" alt="Aperçu Image 3" style="max-width: 100px; max-height: 100px; object-fit: cover;">
+                                        {% endif %}
+                                    </div>
+                                    {% if form.image3.errors %}
+                                        <div class="invalid-feedback">
+                                            {{ form.image3.errors|join:", " }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <!-- reCAPTCHA -->
+                        <div class="col-12">
+                            {{ form.captcha.label_tag }}
+                            {{ form.captcha }}
+                            {% if form.captcha.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.captcha.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+       
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validation Bootstrap
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+
+    // Prévisualisation des images
+    function previewImage(input, previewId) {
+        const preview = document.getElementById(previewId);
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Aperçu" style="max-width: 100px; max-height: 100px; object-fit: cover;">`;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    document.getElementById('id_image1').addEventListener('change', function () {
+        previewImage(this, 'preview-image1');
+    });
+    document.getElementById('id_image2').addEventListener('change', function () {
+        previewImage(this, 'preview-image2');
+    });
+    document.getElementById('id_image3').addEventListener('change', function () {
+        previewImage(this, 'preview-image3');
+    });
+</script>
+{% endblock %}

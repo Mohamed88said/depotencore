@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'store/css/custom.css' %}">
+<style>
+    .hero-banner { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{% static "img/banner-bg.jpg" %}'); background-size: cover; background-position: center; color: white; padding: 5rem 0; margin-bottom: 2rem; border-radius: var(--rounded-lg); }
+    .discount-badge { position: absolute; top: 10px; left: 10px; background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero-banner text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-4">Découvrez notre collection</h1>
+        <p class="lead mb-5">Explorez nos produits de qualité supérieure</p>
+        <a href="#products" class="btn btn-primary btn-lg">Boutique</a>
+    </div>
+</section>
+
+<div class="container" id="products">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Nos Produits</h2>
+        <div class="d-flex">
+            <button class="btn btn-outline-secondary me-2" id="gridViewBtn" title="Vue grille">
+                <i class="fas fa-th"></i>
+            </button>
+            <button class="btn btn-outline-secondary" id="listViewBtn" title="Vue liste">
+                <i class="fas fa-list"></i>
+            </button>
+        </div>
+    </div>
+
+    <form method="get" class="mb-4 p-4 bg-white rounded-3 shadow-sm">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent"><i class="fas fa-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Rechercher un produit..." value="{{ query }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="category" class="form-select">
+                    <option value="">Toutes catégories</option>
+                    {% for category in categories %}
+                        <option value="{{ category.name }}" {% if selected_category == category.name %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">€</span>
+                    <input type="number" name="price_min" class="form-control" placeholder="Min" value="{{ price_min }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent">€</span>
+                    <input type="number" name="price_max" class="form-control" placeholder="Max" value="{{ price_max }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="size" class="form-select">
+                    <option value="">Toutes tailles</option>
+                    {% for size in product_sizes %}
+                        <option value="{{ size.0 }}" {% if size_filter == size.0 %}selected{% endif %}>{{ size.1 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="text" name="brand" class="form-control" placeholder="Marque" value="{{ brand_filter }}">
+            </div>
+            <div class="col-md-3">
+                <input type="text" name="color" class="form-control" placeholder="Couleur" value="{{ color_filter }}">
+            </div>
+            <div class="col-md-2">
+                <input type="text" name="material" class="form-control" placeholder="Matériau" value="{{ material_filter }}">
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-4" id="productContainer">
+        {% for product in page_obj %}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3 product-item">
+                <div class="card product-card h-100 position-relative">
+                    {% if product.discounted_price < product.price %}
+                        <span class="discount-badge">-{{ product.active_discount_percentage }}%</span>
+                    {% endif %}
+                    <div class="product-img-container">
+                        {% if product.image1 %}
+                            <img src="{{ product.image1.url }}" class="product-img" alt="{{ product.name }}">
+                        {% else %}
+                            <img src="{% static 'img/placeholder.jpg' %}" class="product-img" alt="Placeholder">
+                        {% endif %}
+                    </div>
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">{{ product.name|truncatechars:30 }}</h5>
+                            {% if request.user in product.favorite_set.all %}
+                                <i class="fas fa-heart text-danger favorite-icon" data-product-id="{{ product.id }}" data-bs-toggle="tooltip" title="Favori"></i>
+                            {% else %}
+                                <i class="far fa-heart text-muted favorite-icon" data-product-id="{{ product.id }}" data-bs-toggle="tooltip" title="Ajouter aux favoris"></i>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2">
+                            {% if product.discounted_price < product.price %}
+                                <span class="original-price me-2">{{ product.price }} €</span>
+                                <span class="price">{{ product.discounted_price }} €</span>
+                            {% else %}
+                                <span class="price">{{ product.price }} €</span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-auto d-flex justify-content-between align-items-center">
+                            <a href="{% url 'store:product_detail' product.id %}" class="btn btn-sm btn-outline-primary">Détails</a>
+                            {% if user.is_authenticated %}
+                                <button class="btn btn-sm btn-primary add-to-cart" data-product-id="{{ product.id }}">
+                                    <i class="fas fa-cart-plus"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12 text-center py-5">
+                <img src="{% static 'img/no-products.svg' %}" alt="Aucun produit" width="200" class="mb-4">
+                <h4 class="text-muted">Aucun produit trouvé</h4>
+                <p class="text-muted">Modifiez vos critères de recherche</p>
+                <a href="{% url 'store:product_list' %}" class="btn btn-primary mt-3">Réinitialiser</a>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-5">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const gridViewBtn = document.getElementById('gridViewBtn');
+const listViewBtn = document.getElementById('listViewBtn');
+const productContainer = document.getElementById('productContainer');
+
+gridViewBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    productContainer.classList.remove('list-view');
+    productContainer.classList.add('grid-view');
+    document.querySelectorAll('.product-item').forEach(item => {
+        item.className = 'col-12 col-sm-6 col-md-4 col-lg-3 product-item';
+    });
+    gridViewBtn.classList.remove('btn-outline-secondary');
+    gridViewBtn.classList.add('btn-primary');
+    listViewBtn.classList.remove('btn-primary');
+    listViewBtn.classList.add('btn-outline-secondary');
+    localStorage.setItem('productView', 'grid');
+});
+
+listViewBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    productContainer.classList.remove('grid-view');
+    productContainer.classList.add('list-view');
+    document.querySelectorAll('.product-item').forEach(item => {
+        item.className = 'col-12 product-item mb-4';
+    });
+    listViewBtn.classList.remove('btn-outline-secondary');
+    listViewBtn.classList.add('btn-primary');
+    gridViewBtn.classList.remove('btn-primary');
+    gridViewBtn.classList.add('btn-outline-secondary');
+    localStorage.setItem('productView', 'list');
+});
+
+const savedView = localStorage.getItem('productView') || 'grid';
+if (savedView === 'list') listViewBtn.click(); else gridViewBtn.click();
+
+document.querySelectorAll('.add-to-cart').forEach(button => {
+    button.addEventListener('click', function(event) {
+        event.preventDefault();
+        const productId = this.getAttribute('data-product-id');
+        const icon = this.querySelector('i');
+
+        fetch(`/cart/add/${productId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: ''
+        })
+        .then(response => response.redirected ? window.location.href = response.url : response.json())
+        .then(data => {
+            if (data && data.success) {
+                icon.classList.remove('fa-cart-plus');
+                icon.classList.add('fa-check');
+                this.classList.add('btn-success');
+                setTimeout(() => {
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-cart-plus');
+                    this.classList.remove('btn-success');
+                }, 2000);
+                const cartCount = document.querySelector('.cart-count');
+                if (cartCount && data.cart_count) {
+                    cartCount.textContent = data.cart_count;
+                    gsap.to(cartCount, { scale: 1.5, duration: 0.3, yoyo: true, repeat: 1 });
+                }
+            }
+        })
+        .catch(error => { console.error('Erreur:', error); alert('Erreur lors de l\'ajout au panier.'); });
+    });
+});
+
+document.querySelectorAll('.favorite-icon').forEach(icon => {
+    icon.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const productId = this.getAttribute('data-product-id');
+        const csrfToken = getCookie('csrftoken');
+        const toggleFavoriteUrl = `{% url 'store:toggle_favorite' 0 %}`.replace('0', productId); // Remplace 0 par productId dynamiquement
+
+        try {
+            const response = await fetch(toggleFavoriteUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erreur réseau: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // Met à jour l'icône en fonction de l'action
+                this.classList.toggle('far', data.action === 'removed');
+                this.classList.toggle('fas', data.action === 'added');
+                this.classList.toggle('text-danger', data.action === 'added');
+                this.classList.toggle('text-muted', data.action === 'removed');
+
+                const newTitle = data.action === 'added' ? 'Favori' : 'Ajouter aux favoris';
+                this.setAttribute('title', newTitle);
+
+                Toastify({
+                    text: `Produit ${data.action === 'added' ? 'ajouté aux' : 'retiré des'} favoris`,
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    backgroundColor: data.action === 'added' ? "#28a745" : "#dc3545",
+                }).showToast();
+            } else {
+                alert(`Erreur: ${data.message || 'Action non réussie'}`);
+            }
+        } catch (error) {
+            console.error("Erreur:", error);
+            if (error.message.includes('401')) {
+                window.location.href = '/accounts/login/?next=' + window.location.pathname;
+            } else {
+                alert('Une erreur est survenue lors de la mise à jour des favoris.');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

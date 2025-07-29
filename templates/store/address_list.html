@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Adresses de la Guinée{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'store/css/geolocation.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-map me-2"></i>Adresses de la Guinée</h2>
+        <a href="{% url 'store:contribute_address' %}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i>Contribuer une adresse
+        </a>
+    </div>
+    
+    <!-- Formulaire de recherche -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-8">
+                    {{ form.query }}
+                </div>
+                <div class="col-md-3">
+                    {{ form.region }}
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if addresses %}
+        <div class="row">
+            {% for address in addresses %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm location-card">
+                    {% if address.photo %}
+                    <img src="{{ address.photo.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="Photo du lieu">
+                    {% endif %}
+                    
+                    <div class="card-body">
+                        <h6 class="card-title">{{ address.description|truncatechars:60 }}</h6>
+                        
+                        <div class="small text-muted mb-2">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ address.quartier.name }}, {{ address.prefecture.name }}
+                        </div>
+                        
+                        {% if address.landmark %}
+                        <div class="small text-info mb-2">
+                            <i class="fas fa-landmark me-1"></i>
+                            {{ address.landmark }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary usage-badge">
+                                {{ address.usage_count }} utilisation{{ address.usage_count|pluralize }}
+                            </span>
+                            <span class="location-status {{ address.status }}">
+                                {% if address.status == 'validated' %}
+                                    <i class="fas fa-check-circle me-1"></i>Validée
+                                {% elif address.status == 'pending' %}
+                                    <i class="fas fa-clock me-1"></i>En attente
+                                {% else %}
+                                    <i class="fas fa-times-circle me-1"></i>Rejetée
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'store:address_detail' address.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>Voir
+                            </a>
+                            <a href="{{ address.google_maps_link }}" target="_blank" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>Maps
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if addresses.has_other_pages %}
+        <nav aria-label="Navigation des adresses">
+            <ul class="pagination justify-content-center">
+                {% if addresses.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ addresses.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.region %}&region={{ request.GET.region }}{% endif %}">Précédent</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in addresses.paginator.page_range %}
+                    {% if addresses.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.region %}&region={{ request.GET.region }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if addresses.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ addresses.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.region %}&region={{ request.GET.region }}{% endif %}">Suivant</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-map fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">Aucune adresse trouvée</h4>
+            <p class="text-muted">Soyez le premier à contribuer une adresse dans cette zone</p>
+            <a href="{% url 'store:contribute_address' %}" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i>Ajouter une adresse
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

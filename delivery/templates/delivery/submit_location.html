@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Soumettre une localisation pour la commande #{{ order.id }}</h2>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div>
+        <label for="photo">Photo de la localisation :</label>
+        <input type="file" id="photo" name="photo" accept="image/*" capture="camera">
+    </div>
+    <div>
+        <label for="description">Description de la localisation :</label>
+        <textarea id="description" name="description" required></textarea>
+    </div>
+    <button type="submit">Soumettre</button>
+</form>
+{% endblock %}

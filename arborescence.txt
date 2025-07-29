@@ -1,0 +1,354 @@
+Arborescence du projet :
+├── .
+│   ├── .gitignore
+│   ├── README.md
+│   ├── accounts/
+│   │   ├── __init__.py
+│   │   ├── adapters.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── admin_panel/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── consumers.py
+│   │   ├── models.py
+│   │   ├── routing.py
+│   │   ├── signals.py
+│   │   ├── templates/
+│   │   │   ├── admin_panel/
+│   │   │   │   ├── delivery_list.html
+│   │   │   │   ├── report/
+│   │   │   │   │   ├── detail.html
+│   │   │   │   │   ├── list.html
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── arborescence.txt
+│   ├── blog/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── chat/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── consumers.py
+│   │   ├── models.py
+│   │   ├── routing.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── dashboard/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── delivery/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── templates/
+│   │   │   ├── delivery/
+│   │   │   │   ├── assign_delivery.html
+│   │   │   │   ├── submit_location.html
+│   │   │   │   ├── suggest_location.html
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── utils.py
+│   │   ├── views.py
+│   ├── ecommerce_project/
+│   │   ├── README.md
+│   │   ├── __init__.py
+│   │   ├── asgi.py
+│   │   ├── settings.py
+│   │   ├── urls.py
+│   │   ├── wsgi.py
+│   ├── gen_arbo.py
+│   ├── manage.py
+│   ├── marketing/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── models.py
+│   │   ├── templates/
+│   │   │   ├── marketing/
+│   │   │   │   ├── loyalty_dashboard.html
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── media/
+│   │   ├── blog/
+│   │   │   ├── images/
+│   │   ├── delivery/
+│   │   │   ├── photos/
+│   │   ├── products/
+│   │   ├── profile_pics/
+│   │   │   ├── test.jpg
+│   │   │   ├── test_FRrANGn.jpg
+│   │   ├── profile_pictures/
+│   │   ├── returns/
+│   │   │   ├── images/
+│   │   │   │   ├── test.jpg
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── requirements.txt
+│   ├── returns/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── signals.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── style.css
+│   │   ├── dashboard/
+│   │   │   ├── css/
+│   │   │   │   ├── dashboard.css
+│   │   ├── img/
+│   │   │   ├── banner-bg.jpg
+│   │   │   ├── placeholder.jpg
+│   │   ├── js/
+│   │   │   ├── chart.min.js
+│   │   │   ├── main.js
+│   │   ├── store/
+│   │   │   ├── css/
+│   │   │   │   ├── custom.css
+│   │   │   ├── js/
+│   │   │   │   ├── image_preview.js
+│   │   │   │   ├── product_detail.js
+│   │   │   │   ├── search.js
+│   ├── staticfiles/
+│   │   ├── account/
+│   │   │   ├── js/
+│   │   │   │   ├── account.js
+│   │   │   │   ├── onload.js
+│   │   ├── admin/
+│   │   │   ├── css/
+│   │   │   │   ├── autocomplete.css
+│   │   │   │   ├── base.css
+│   │   │   │   ├── changelists.css
+│   │   │   │   ├── dark_mode.css
+│   │   │   │   ├── dashboard.css
+│   │   │   │   ├── forms.css
+│   │   │   │   ├── login.css
+│   │   │   │   ├── nav_sidebar.css
+│   │   │   │   ├── responsive.css
+│   │   │   │   ├── responsive_rtl.css
+│   │   │   │   ├── rtl.css
+│   │   │   │   ├── vendor/
+│   │   │   │   │   ├── select2/
+│   │   │   │   │   │   ├── LICENSE-SELECT2.md
+│   │   │   │   │   │   ├── select2.css
+│   │   │   │   │   │   ├── select2.min.css
+│   │   │   │   ├── widgets.css
+│   │   │   ├── img/
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── README.txt
+│   │   │   │   ├── calendar-icons.svg
+│   │   │   │   ├── gis/
+│   │   │   │   │   ├── move_vertex_off.svg
+│   │   │   │   │   ├── move_vertex_on.svg
+│   │   │   │   ├── icon-addlink.svg
+│   │   │   │   ├── icon-alert.svg
+│   │   │   │   ├── icon-calendar.svg
+│   │   │   │   ├── icon-changelink.svg
+│   │   │   │   ├── icon-clock.svg
+│   │   │   │   ├── icon-deletelink.svg
+│   │   │   │   ├── icon-no.svg
+│   │   │   │   ├── icon-unknown-alt.svg
+│   │   │   │   ├── icon-unknown.svg
+│   │   │   │   ├── icon-viewlink.svg
+│   │   │   │   ├── icon-yes.svg
+│   │   │   │   ├── inline-delete.svg
+│   │   │   │   ├── search.svg
+│   │   │   │   ├── selector-icons.svg
+│   │   │   │   ├── sorting-icons.svg
+│   │   │   │   ├── tooltag-add.svg
+│   │   │   │   ├── tooltag-arrowright.svg
+│   │   │   ├── js/
+│   │   │   │   ├── SelectBox.js
+│   │   │   │   ├── SelectFilter2.js
+│   │   │   │   ├── actions.js
+│   │   │   │   ├── admin/
+│   │   │   │   │   ├── DateTimeShortcuts.js
+│   │   │   │   │   ├── RelatedObjectLookups.js
+│   │   │   │   ├── autocomplete.js
+│   │   │   │   ├── calendar.js
+│   │   │   │   ├── cancel.js
+│   │   │   │   ├── change_form.js
+│   │   │   │   ├── collapse.js
+│   │   │   │   ├── core.js
+│   │   │   │   ├── filters.js
+│   │   │   │   ├── inlines.js
+│   │   │   │   ├── jquery.init.js
+│   │   │   │   ├── nav_sidebar.js
+│   │   │   │   ├── popup_response.js
+│   │   │   │   ├── prepopulate.js
+│   │   │   │   ├── prepopulate_init.js
+│   │   │   │   ├── theme.js
+│   │   │   │   ├── urlify.js
+│   │   │   │   ├── vendor/
+│   │   │   │   │   ├── jquery/
+│   │   │   │   │   │   ├── LICENSE.txt
+│   │   │   │   │   │   ├── jquery.js
+│   │   │   │   │   │   ├── jquery.min.js
+│   │   │   │   │   ├── select2/
+│   │   │   │   │   │   ├── LICENSE.md
+│   │   │   │   │   │   ├── i18n/
+│   │   │   │   │   │   │   ├── af.js
+│   │   │   │   │   │   │   ├── ar.js
+│   │   │   │   │   │   │   ├── az.js
+│   │   │   │   │   │   │   ├── vi.js
+│   │   │   │   │   │   │   ├── zh-CN.js
+│   │   │   │   │   │   │   ├── zh-TW.js
+│   │   │   │   │   │   ├── select2.full.js
+│   │   │   │   │   │   ├── select2.full.min.js
+│   │   │   │   │   ├── xregexp/
+│   │   │   │   │   │   ├── LICENSE.txt
+│   │   │   │   │   │   ├── xregexp.js
+│   │   │   │   │   │   ├── xregexp.min.js
+│   │   ├── css/
+│   │   │   ├── style.css
+│   │   ├── dashboard/
+│   │   │   ├── css/
+│   │   │   │   ├── dashboard.css
+│   │   ├── img/
+│   │   │   ├── banner-bg.jpg
+│   │   │   ├── default-profile.png
+│   │   │   ├── empty-cart.svg
+│   │   │   ├── empty-favorites.svg
+│   │   │   ├── empty-notifications.svg
+│   │   │   ├── no-addresses.svg
+│   │   │   ├── no-orders.svg
+│   │   │   ├── no-products.svg
+│   │   │   ├── no-reviews.svg
+│   │   │   ├── payment-methods.png
+│   │   │   ├── placeholder.jpg
+│   │   ├── js/
+│   │   │   ├── chart.min.js
+│   │   │   ├── main.js
+│   │   ├── store/
+│   │   │   ├── css/
+│   │   │   │   ├── custom.css
+│   │   │   ├── js/
+│   │   │   │   ├── image_preview.js
+│   │   │   │   ├── product_detail.js
+│   │   │   │   ├── search.js
+│   ├── store/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── consumers.py
+│   │   ├── context_processors.py
+│   │   ├── forms.py
+│   │   ├── models.py
+│   │   ├── routing.py
+│   │   ├── signals.py
+│   │   ├── templatetags/
+│   │   │   ├── __init__.py
+│   │   │   ├── store_tags.py
+│   │   ├── tests.py
+│   │   ├── urls.py
+│   │   ├── utils.py
+│   │   ├── views.py
+│   ├── tailwind.config.js
+│   ├── templates/
+│   │   ├── 404.html
+│   │   ├── 500.html
+│   │   ├── accounts/
+│   │   │   ├── login.html
+│   │   │   ├── profile.html
+│   │   │   ├── seller_profile.html
+│   │   │   ├── seller_public_profile.html
+│   │   │   ├── signup.html
+│   │   ├── admin/
+│   │   │   ├── dashboard.html
+│   │   ├── admin_panel/
+│   │   │   ├── dashboard.html
+│   │   │   ├── product_edit.html
+│   │   │   ├── product_list.html
+│   │   │   ├── product_moderation.html
+│   │   │   ├── report_list.html
+│   │   │   ├── review_list.html
+│   │   │   ├── user_list.html
+│   │   ├── base.html
+│   │   ├── blog/
+│   │   │   ├── post_detail.html
+│   │   │   ├── post_form.html
+│   │   │   ├── post_list.html
+│   │   ├── chat/
+│   │   │   ├── chat.html
+│   │   ├── dashboard/
+│   │   │   ├── base.html
+│   │   │   ├── orders.html
+│   │   │   ├── overview.html
+│   │   │   ├── product_confirm_delete.html
+│   │   │   ├── product_create.html
+│   │   │   ├── product_form.html
+│   │   │   ├── product_list.html
+│   │   │   ├── products.html
+│   │   │   ├── profile.html
+│   │   │   ├── requests.html
+│   │   │   ├── return_review.html
+│   │   │   ├── revenue_chart.html
+│   │   │   ├── review_confirm_delete.html
+│   │   │   ├── reviews.html
+│   │   │   ├── statistics.html
+│   │   ├── home.html
+│   │   ├── returns/
+│   │   │   ├── return_form.html
+│   │   │   ├── return_list.html
+│   │   │   ├── return_review.html
+│   │   ├── store/
+│   │   │   ├── add_address.html
+│   │   │   ├── apply_discount.html
+│   │   │   ├── cart.html
+│   │   │   ├── checkout.html
+│   │   │   ├── confirm_sold.html
+│   │   │   ├── favorites.html
+│   │   │   ├── messages.html
+│   │   │   ├── notifications.html
+│   │   │   ├── order_detail.html
+│   │   │   ├── order_history.html
+│   │   │   ├── partial_product_form.html
+│   │   │   ├── payment.html
+│   │   │   ├── payment_success.html
+│   │   │   ├── product_confirm_delete.html
+│   │   │   ├── product_detail.html
+│   │   │   ├── product_form.html
+│   │   │   ├── product_list.html
+│   │   │   ├── rate_seller.html
+│   │   │   ├── reply_to_review.html
+│   │   │   ├── report_form.html
+│   │   │   ├── request_product.html
+│   │   │   ├── respond_product_request.html
+│   │   │   ├── review_confirm_delete.html
+│   │   │   ├── seller_order_list.html
+│   │   │   ├── subscription_plans.html
+│   │   │   ├── test_email.html
+│   │   │   ├── update_cart.html
+│   │   │   ├── update_order_status.html
+│   ├── test_output.txt

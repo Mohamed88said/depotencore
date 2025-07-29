@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Assigner un livreur pour la livraison #{{ delivery.id }}</h2>
+<p>Commande : #{{ delivery.order.id }}</p>
+<p>Localisation : {{ delivery.location.description }}</p>
+{% if delivery.location.photo %}
+    <img src="{{ delivery.location.photo.url }}" alt="Localisation" style="max-width: 200px;">
+{% endif %}
+<form method="post">
+    {% csrf_token %}
+    <div>
+        <label for="delivery_person">Livreur :</label>
+        <select id="delivery_person" name="delivery_person">
+            {% for person in delivery_persons %}
+                <option value="{{ person.id }}">{{ person.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit">Assigner</button>
+</form>
+{% endblock %}

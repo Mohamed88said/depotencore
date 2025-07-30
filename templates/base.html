@@ -70,9 +70,8 @@
                         <!-- Icône Notifications -->
                         <li class="nav-item mx-1">
                             <a class="nav-link icon-link position-relative" href="{% url 'store:notifications' %}" aria-label="Notifications" data-bs-toggle="tooltip" title="Notifications">
-                                <i class="fas fa-bell position-relative" aria-hidden="true">
-                                    <span id="notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;" aria-hidden="true">0</span>
-                                </i>
+                                <i class="fas fa-bell position-relative" aria-hidden="true"></i>
+                                <span id="notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger hidden" aria-live="polite" aria-label="Nombre de notifications non lues">0</span>
                             </a>
                         </li>
                         <!-- Icône Favoris -->
@@ -251,7 +250,13 @@
                 const badge = document.getElementById('notification-badge');
                 if (badge) {
                     badge.textContent = data.count;
-                    badge.style.display = data.count > 0 ? 'inline' : 'none';
+                    if (data.count > 0) {
+                        badge.classList.remove('hidden');
+                        badge.classList.add('show');
+                    } else {
+                        badge.classList.remove('show');
+                        badge.classList.add('hidden');
+                    }
                 }
             }
         };
@@ -264,11 +269,14 @@
             console.error("WebSocket error:", error);
         };
 
-        document.getElementById('notification-badge')?.addEventListener('click', () => {
+        const notificationBadge = document.getElementById('notification-badge');
+        if (notificationBadge) {
+            notificationBadge.addEventListener('click', () => {
             socket.send(JSON.stringify({
                 type: 'mark_as_read'
             }));
-        });
+            });
+        }
     </script>
     {% endif %}
     {% endblock %}

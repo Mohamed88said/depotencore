@@ -185,6 +185,9 @@
             height: 40px;
             font-size: 0.85rem;
         }
+       .checkout-map {
+           height: 250px;
+       }
     }
 </style>
 {% endblock %}
@@ -219,7 +222,7 @@
                             <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>Votre localisation de livraison</h4>
                             
                             <!-- Localisation actuelle -->
-                            <div class="current-location-display" id="currentLocationDisplay" style="display: none;">
+                            <div class="current-location-display hidden" id="currentLocationDisplay">
                                 <div class="d-flex align-items-center mb-2">
                                     <i class="fas fa-check-circle text-success me-2"></i>
                                     <strong>Position détectée</strong>
@@ -232,7 +235,7 @@
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Précisez votre position sur la carte</label>
                                 <div class="map-container">
-                                    <div id="map" style="height: 350px;"></div>
+                                    <div id="map" class="checkout-map" role="region" aria-label="Carte interactive pour sélectionner la localisation"></div>
                                 </div>
                                 <div class="mt-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm geolocation-btn" id="getCurrentLocation">
@@ -250,7 +253,7 @@
                             
                             <!-- Description de la localisation -->
                             <div class="mb-3">
-                                <label for="{{ location_form.description.id_for_label }}" class="form-label fw-bold">
+                                <label for="id_description" class="form-label fw-bold">
                                     Description de votre adresse
                                 </label>
                                 {{ location_form.description }}
@@ -261,7 +264,7 @@
                             
                             <!-- Photo optionnelle -->
                             <div class="mb-3">
-                                <label for="{{ location_form.photo.id_for_label }}" class="form-label fw-bold">
+                                <label for="id_photo" class="form-label fw-bold">
                                     Photo du lieu (optionnel)
                                 </label>
                                 {{ location_form.photo }}
@@ -273,13 +276,13 @@
                             <!-- Informations de livraison -->
                             <div class="row">
                                 <div class="col-md-6">
-                                    <label for="{{ delivery_form.access_instructions.id_for_label }}" class="form-label fw-bold">
+                                    <label for="id_access_instructions" class="form-label fw-bold">
                                         Instructions d'accès
                                     </label>
                                     {{ delivery_form.access_instructions }}
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="{{ delivery_form.contact_phone.id_for_label }}" class="form-label fw-bold">
+                                    <label for="id_contact_phone" class="form-label fw-bold">
                                         Téléphone de contact
                                     </label>
                                     {{ delivery_form.contact_phone }}
@@ -322,7 +325,7 @@
                                 </div>
                                 <div class="mt-3" id="cardPaymentFields">
                                     <div class="mb-3">
-                                        <label for="card-element" class="form-label">Informations de carte</label>
+                                        <label for="card-element" class="form-label" id="card-element-label">Informations de carte</label>
                                         <div id="card-element"></div>
                                         <div id="card-errors" class="error-message small"></div>
                                     </div>
@@ -347,7 +350,7 @@
                                         <i class="fab fa-paypal me-2"></i>PayPal
                                     </label>
                                 </div>
-                                <div class="mt-3" id="paypalPaymentFields" style="display: none;">
+                                <div class="mt-3 hidden" id="paypalPaymentFields">
                                     <div id="paypal-button-container"></div>
                                     <div id="paypal-errors" class="error-message small"></div>
                                 </div>
@@ -361,9 +364,9 @@
                                         <i class="fas fa-university me-2"></i>Virement SEPA
                                     </label>
                                 </div>
-                                <div class="mt-3" id="sepaPaymentFields" style="display: none;">
+                                <div class="mt-3 hidden" id="sepaPaymentFields">
                                     <div class="mb-3">
-                                        <label for="iban-element" class="form-label">IBAN</label>
+                                        <label for="iban-element" class="form-label" id="iban-element-label">IBAN</label>
                                         <div id="iban-element"></div>
                                         <div id="iban-errors" class="error-message small"></div>
                                     </div>
@@ -490,7 +493,8 @@ document.addEventListener('DOMContentLoaded', function() {
         lonInput.value = lng.toFixed(6);
         
         // Afficher les coordonnées
-        currentLocationDisplay.style.display = 'block';
+        currentLocationDisplay.classList.remove('hidden');
+        currentLocationDisplay.classList.add('show');
         coordinatesDisplay.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         
         // Géocodage inverse pour obtenir l'adresse
@@ -608,9 +612,27 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector(`#payment${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}`).checked = true;
         
         // Afficher/masquer les champs de paiement
-        document.getElementById('cardPaymentFields').style.display = paymentMethod === 'card' ? 'block' : 'none';
-        document.getElementById('paypalPaymentFields').style.display = paymentMethod === 'paypal' ? 'block' : 'none';
-        document.getElementById('sepaPaymentFields').style.display = paymentMethod === 'sepa' ? 'block' : 'none';
+        const cardFields = document.getElementById('cardPaymentFields');
+        const paypalFields = document.getElementById('paypalPaymentFields');
+        const sepaFields = document.getElementById('sepaPaymentFields');
+        
+        // Masquer tous les champs
+        [cardFields, paypalFields, sepaFields].forEach(field => {
+            field.classList.add('hidden');
+            field.classList.remove('show');
+        });
+        
+        // Afficher le champ approprié
+        if (paymentMethod === 'card') {
+            cardFields.classList.remove('hidden');
+            cardFields.classList.add('show');
+        } else if (paymentMethod === 'paypal') {
+            paypalFields.classList.remove('hidden');
+            paypalFields.classList.add('show');
+        } else if (paymentMethod === 'sepa') {
+            sepaFields.classList.remove('hidden');
+            sepaFields.classList.add('show');
+        }
     };
     
     // Soumission du formulaire

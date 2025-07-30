@@ -331,17 +331,32 @@ footer a:hover {
 /* Animations */
 .animate-dropdown {
     animation: fadeInUp 0.3s ease-out;
+    will-change: transform, opacity;
+}
+
+.animate-dropdown.animation-complete {
+    will-change: auto;
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translate3d(0, 10px, 0);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate3d(0, 0, 0);
     }
+}
+
+/* Optimisation des animations pulse */
+/* Optimisation de l'animation pulse */
+.pulse {
+    will-change: transform;
+}
+
+.pulse:not(.animating) {
+    will-change: auto;
 }
 
 /* Responsive */

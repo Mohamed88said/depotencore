@@ -9,11 +9,30 @@ class SignUpForm(SignupForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['email'].widget.attrs.update({'class': 'form-control'})
-        self.fields['username'].widget.attrs.update({'class': 'form-control'})
-        self.fields['password1'].widget.attrs.update({'class': 'form-control'})
-        self.fields['password2'].widget.attrs.update({'class': 'form-control'})
-        self.fields['user_type'].widget.attrs.update({'class': 'form-control'})
+        self.fields['email'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'email',
+            'id': 'id_email'
+        })
+        self.fields['username'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'username',
+            'id': 'id_username'
+        })
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'new-password',
+            'id': 'id_password1'
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'autocomplete': 'new-password',
+            'id': 'id_password2'
+        })
+        self.fields['user_type'].widget.attrs.update({
+            'class': 'form-control',
+            'id': 'id_user_type'
+        })
 
     def save(self, request):
         user = super().save(request)
@@ -25,8 +44,18 @@ class LoginForm(LoginForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['login'].label = "Email ou nom d’utilisateur"
-        self.fields['login'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Entrez votre email ou nom d’utilisateur'})
-        self.fields['password'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Mot de passe'})
+        self.fields['login'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Entrez votre email ou nom d'utilisateur',
+            'autocomplete': 'username',
+            'id': 'id_login'
+        })
+        self.fields['password'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Mot de passe',
+            'autocomplete': 'current-password',
+            'id': 'id_password'
+        })
 
 class ProfileForm(forms.ModelForm):
     class Meta:

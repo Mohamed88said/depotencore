@@ -52,12 +52,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gestion des notifications
     const notificationBadge = document.querySelector('.pulse');
     if (notificationBadge) {
+        notificationBadge.classList.add('animating');
         setInterval(() => {
             notificationBadge.style.transform = 'scale(1.1)';
             setTimeout(() => {
                 notificationBadge.style.transform = 'scale(1)';
             }, 300);
         }, 3000);
+        
+        // Nettoyer will-change après l'animation
+        setTimeout(() => {
+            notificationBadge.classList.remove('animating');
+        }, 5000);
     }
 
     // Prévisualisation des images
@@ -79,7 +85,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 opacity: 0,
                                 scale: 0.8,
                                 duration: 0.5,
-                                ease: 'back.out(1.7)'
+                                ease: 'back.out(1.7)',
+                                onComplete: function() {
+                                    // Nettoyer will-change après l'animation
+                                    img.style.willChange = 'auto';
+                                }
                             });
                         }
                     }
@@ -108,7 +118,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     y: -5,
                     duration: 0.2,
                     yoyo: true,
-                    repeat: 1
+                    repeat: 1,
+                    onComplete: function() {
+                        cartIcon.style.willChange = 'auto';
+                    }
                 });
             }
         });
@@ -153,6 +166,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     trigger: item,
                     start: 'top 80%',
                     toggleActions: 'play none none none'
+                },
+                onComplete: function() {
+                    item.style.willChange = 'auto';
                 }
             });
         });

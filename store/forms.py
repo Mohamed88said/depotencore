@@ -44,7 +44,27 @@ class ProductForm(forms.ModelForm):
         if self.instance.pk and self.instance.category:
             self.fields['category'].initial = self.instance.category.name
         for field in ['size', 'brand', 'color', 'material', 'discount_percentage']:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})
+            self.fields[field].widget.attrs.update({
+                'class': 'form-control',
+                'id': f'id_{field}'
+            })
+        
+        # Ajouter des IDs et autocomplete appropriés
+        self.fields['name'].widget.attrs.update({
+            'id': 'id_name',
+            'autocomplete': 'off'
+        })
+        self.fields['description'].widget.attrs.update({
+            'id': 'id_description'
+        })
+        self.fields['price'].widget.attrs.update({
+            'id': 'id_price',
+            'autocomplete': 'off'
+        })
+        self.fields['stock'].widget.attrs.update({
+            'id': 'id_stock',
+            'autocomplete': 'off'
+        })
 
     def clean_category(self):
         category_name = self.cleaned_data.get('category')

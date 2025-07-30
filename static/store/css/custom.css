@@ -52,12 +52,22 @@
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translate3d(0, 10px, 0);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate3d(0, 0, 0);
     }
+}
+
+/* Optimisation des animations pour les performances */
+.notification-item {
+    animation: fadeIn 0.3s ease-out;
+    will-change: transform, opacity;
+}
+
+.notification-item.animate-complete {
+    will-change: auto;
 }
 
 .notification-item {
@@ -70,12 +80,17 @@
     border-radius: var(--rounded-lg);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.3s ease, box-shadow 0.3s;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
 }
 
 .product-card:hover {
-    transform: translateY(-5px);
+    transform: translate3d(0, -5px, 0);
     box-shadow: var(--shadow-md);
+}
+
+.product-card:not(:hover) {
+    will-change: auto;
 }
 
 .product-img-container {
@@ -89,11 +104,16 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.5s;
+    transition: transform 0.5s ease;
+    will-change: transform;
 }
 
 .product-card:hover .product-img {
-    transform: scale(1.05);
+    transform: scale3d(1.05, 1.05, 1);
+}
+
+.product-card:not(:hover) .product-img {
+    will-change: auto;
 }
 
 .discount-badge {
@@ -202,6 +222,10 @@
         border: none;
         background: transparent;
         padding-left: 1rem;
+    }
+    
+    .checkout-map {
+        height: 250px !important;
     }
 }
 

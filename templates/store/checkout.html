@@ -1,23 +1,30 @@
+<!DOCTYPE html>
 {% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Paiement{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="{% static 'store/css/geolocation.css' %}">
-<link rel="stylesheet" href="{% static 'store/css/custom.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+      crossorigin=""/>
+<script src="https://js.stripe.com/v3/"></script>
 {% endblock %}
 
 {% block extra_css %}
 <style>
+    .checkout-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
     .checkout-steps {
         display: flex;
         justify-content: space-between;
         margin-bottom: 2rem;
         position: relative;
     }
+    
     .checkout-steps::before {
         content: '';
         position: absolute;
@@ -28,15 +35,17 @@
         background-color: #e2e8f0;
         z-index: 1;
     }
+    
     .step {
         text-align: center;
         position: relative;
         z-index: 2;
         flex: 1;
     }
+    
     .step-number {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         background-color: #e2e8f0;
         color: #64748b;
@@ -46,159 +55,171 @@
         margin: 0 auto 0.5rem;
         font-weight: 600;
     }
+    
     .step.active .step-number {
-        background-color: var(--primary);
+        background-color: #3b82f6;
         color: white;
     }
+    
     .step.completed .step-number {
-        background-color: var(--success);
+        background-color: #10b981;
         color: white;
     }
-    .step-label {
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    .step.active .step-label {
-        color: var(--primary);
-        font-weight: 500;
-    }
-    .step.completed .step-label {
-        color: var(--success);
-    }
+    
     .address-card {
-        border: 1px solid #e2e8f0;
-        border-radius: var(--rounded);
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
         padding: 1rem;
         margin-bottom: 1rem;
         cursor: pointer;
         transition: all 0.3s;
     }
+    
     .address-card:hover {
-        border-color: var(--primary);
+        border-color: #3b82f6;
     }
+    
     .address-card.selected {
-        border-color: var(--primary);
+        border-color: #3b82f6;
         background-color: rgba(59, 130, 246, 0.05);
     }
+    
     .payment-method {
-        border: 1px solid #e2e8f0;
-        border-radius: var(--rounded);
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
         padding: 1rem;
         margin-bottom: 1rem;
         cursor: pointer;
         transition: all 0.3s;
     }
+    
     .payment-method:hover {
-        border-color: var(--primary);
+        border-color: #3b82f6;
     }
+    
     .payment-method.selected {
-        border-color: var(--primary);
+        border-color: #3b82f6;
         background-color: rgba(59, 130, 246, 0.05);
     }
+    
     .summary-item {
         display: flex;
         justify-content: space-between;
         padding: 0.5rem 0;
         border-bottom: 1px solid #f1f5f9;
     }
+    
     .summary-item:last-child {
         border-bottom: none;
+        font-weight: bold;
+        font-size: 1.1rem;
     }
-    .form-control {
-        height: 44px;
-        font-size: 0.9rem;
-    }
-    .btn {
-        height: 44px;
-        font-size: 0.9rem;
-        touch-action: manipulation;
-    }
-    #card-element, #iban-element {
-        border: 1px solid #e2e8f0;
-        border-radius: var(--rounded);
-        padding: 0 10px;
-    }
-    .StripeElement {
-        box-sizing: border-box;
-        height: 44px;
-        padding: 10px 12px;
-        border: 1px solid #e2e8f0;
-        border-radius: var(--rounded);
-        background-color: white;
-    }
-    .StripeElement--focus {
-        border-color: var(--primary);
-        outline: none;
-    }
-    .StripeElement input {
-        outline: none !important;
-    }
-    #card-errors, #iban-errors, #paypal-errors, #location-errors {
-        color: var(--danger);
-        font-size: 0.85rem;
-        margin-top: 0.5rem;
-    }
-    #paypal-button-container {
-        margin-top: 1rem;
-    }
-    .location-section {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-    }
-    .current-location-display {
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
+    
+    /* Styles pour la carte */
     .map-container {
-        border: 2px solid #dee2e6;
+        position: relative;
+        width: 100%;
+        height: 300px;
+        border: 2px solid #e2e8f0;
         border-radius: 8px;
         overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
     }
-    @media (max-width: 767px) {
+    
+    #map {
+        width: 100% !important;
+        height: 100% !important;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .leaflet-container {
+        width: 100% !important;
+        height: 100% !important;
+        font-family: inherit;
+    }
+    
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        padding: 0.75rem;
+    }
+    
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .btn {
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    .btn-primary {
+        background-color: #3b82f6;
+        border-color: #3b82f6;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2563eb;
+        border-color: #2563eb;
+    }
+    
+    #card-element, #iban-element {
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background-color: white;
+    }
+    
+    .error-message {
+        color: #ef4444;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+    }
+    
+    .d-none {
+        display: none !important;
+    }
+    
+    .d-block {
+        display: block !important;
+    }
+    
+    /* Styles pour les champs cachés mais requis */
+    .hidden-required {
+        position: absolute;
+        left: -9999px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+    
+    @media (max-width: 768px) {
         .checkout-steps {
             flex-wrap: wrap;
             gap: 1rem;
         }
+        
         .step {
             flex: 0 0 33%;
         }
-        .step-number {
-            width: 30px;
-            height: 30px;
-            font-size: 0.9rem;
+        
+        .map-container {
+            height: 250px;
         }
-        .step-label {
-            font-size: 0.75rem;
-        }
-        .address-card,
-        .payment-method {
-            padding: 0.75rem;
-        }
-        .form-control,
-        .btn {
-            height: 40px;
-            font-size: 0.85rem;
-        }
-       .checkout-map {
-           height: 250px;
-       }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container my-4 checkout-container">
     <!-- Étapes de commande -->
     <div class="checkout-steps">
         <div class="step active">
             <div class="step-number">1</div>
-            <div class="step-label">Localisation</div>
+            <div class="step-label">Adresse</div>
         </div>
         <div class="step active">
             <div class="step-number">2</div>
@@ -214,85 +235,115 @@
         <div class="col-lg-8">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <form method="post" id="checkoutForm" action="{% url 'store:process_payment' %}" enctype="multipart/form-data" novalidate>
+                    <form method="post" id="checkoutForm" action="{% url 'store:process_payment' %}" novalidate>
                         {% csrf_token %}
                         
-                        <!-- Section Localisation -->
-                        <div class="location-section">
-                            <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>Votre localisation de livraison</h4>
+                        <!-- Section Adresse de livraison -->
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>Adresse de livraison</h4>
                             
-                            <!-- Localisation actuelle -->
-                            <div class="current-location-display hidden" id="currentLocationDisplay">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    <strong>Position détectée</strong>
+                            <!-- Mode de sélection d'adresse -->
+                            <div class="mb-3">
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="address_mode" id="existing_address" value="existing" {% if addresses %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="existing_address">Adresse existante</label>
+                                    
+                                    <input type="radio" class="btn-check" name="address_mode" id="new_address" value="new" {% if not addresses %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="new_address">Nouvelle adresse</label>
                                 </div>
-                                <div class="coordinates-display mb-2" id="coordinatesDisplay"></div>
-                                <div class="small text-muted" id="addressDisplay"></div>
                             </div>
                             
-                            <!-- Carte interactive -->
+                            <!-- Adresses existantes -->
+                            <div id="existingAddressSection" class="{% if not addresses %}d-none{% endif %}">
+                                {% if addresses %}
+                                    {% for address in addresses %}
+                                    <div class="address-card" onclick="selectAddress(this, {{ address.id }})">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="address" id="address{{ address.id }}" value="{{ address.id }}" {% if address.is_default %}checked{% endif %}>
+                                            <label class="form-check-label fw-bold" for="address{{ address.id }}">
+                                                {{ address.full_name }}
+                                                {% if address.is_default %}<span class="badge bg-primary ms-2">Par défaut</span>{% endif %}
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted">
+                                            {{ address.street_address }}<br>
+                                            {{ address.postal_code }} {{ address.city }}, {{ address.country }}
+                                            {% if address.phone_number %}<br>Tél: {{ address.phone_number }}{% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Formulaire nouvelle adresse -->
+                            <div id="newAddressSection" class="{% if addresses %}d-none{% endif %}">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="full_name" class="form-label">Nom complet *</label>
+                                        <input type="text" class="form-control" id="full_name" name="full_name" autocomplete="name">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="phone_number" class="form-label">Téléphone</label>
+                                        <input type="tel" class="form-control" id="phone_number" name="phone_number" autocomplete="tel">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="street_address" class="form-label">Adresse *</label>
+                                        <input type="text" class="form-control" id="street_address" name="street_address" autocomplete="street-address">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="postal_code" class="form-label">Code postal *</label>
+                                        <input type="text" class="form-control" id="postal_code" name="postal_code" autocomplete="postal-code">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="city" class="form-label">Ville *</label>
+                                        <input type="text" class="form-control" id="city" name="city" autocomplete="address-level2">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="country" class="form-label">Pays *</label>
+                                        <input type="text" class="form-control" id="country" name="country" value="Guinée" autocomplete="country">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Localisation GPS -->
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-map me-2"></i>Localisation précise (optionnel)</h4>
+                            <p class="text-muted mb-3">Aidez le livreur à vous trouver en précisant votre position sur la carte</p>
+                            
                             <div class="mb-3">
-                                <label class="form-label fw-bold">Précisez votre position sur la carte</label>
                                 <div class="map-container">
-                                    <div id="map" class="checkout-map" role="region" aria-label="Carte interactive pour sélectionner la localisation"></div>
+                                    <div id="map" role="region" aria-label="Carte interactive pour sélectionner la localisation"></div>
                                 </div>
                                 <div class="mt-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm geolocation-btn" id="getCurrentLocation">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="getCurrentLocation">
                                         <i class="fas fa-crosshairs me-1"></i>Ma position actuelle
                                     </button>
                                     <small class="text-muted ms-3">
-                                        Cliquez sur la carte pour ajuster votre position
+                                        Cliquez sur la carte pour placer un marqueur
                                     </small>
                                 </div>
                             </div>
                             
-                            <!-- Champs cachés pour les coordonnées -->
-                            {{ location_form.latitude }}
-                            {{ location_form.longitude }}
-                            
-                            <!-- Description de la localisation -->
-                            <div class="mb-3">
-                                <label for="id_description" class="form-label fw-bold">
-                                    Description de votre adresse
-                                </label>
-                                {{ location_form.description }}
-                                <div class="form-text">
-                                    Décrivez précisément votre localisation (ex: "Devant la pharmacie centrale, près du rond-point de Madina")
-                                </div>
-                            </div>
-                            
-                            <!-- Photo optionnelle -->
-                            <div class="mb-3">
-                                <label for="id_photo" class="form-label fw-bold">
-                                    Photo du lieu (optionnel)
-                                </label>
-                                {{ location_form.photo }}
-                                <div class="form-text">
-                                    Une photo peut aider le livreur à vous trouver plus facilement
-                                </div>
-                            </div>
-                            
-                            <!-- Informations de livraison -->
-                            <div class="row">
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="id_access_instructions" class="form-label fw-bold">
-                                        Instructions d'accès
-                                    </label>
-                                    {{ delivery_form.access_instructions }}
+                                    <label for="latitude" class="form-label">Latitude</label>
+                                    <input type="number" step="any" class="form-control" id="latitude" name="latitude" readonly>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="id_contact_phone" class="form-label fw-bold">
-                                        Téléphone de contact
-                                    </label>
-                                    {{ delivery_form.contact_phone }}
+                                    <label for="longitude" class="form-label">Longitude</label>
+                                    <input type="number" step="any" class="form-control" id="longitude" name="longitude" readonly>
+                                </div>
+                                <div class="col-12">
+                                    <label for="location_description" class="form-label">Description de la localisation</label>
+                                    <textarea class="form-control" id="location_description" name="location_description" rows="2" placeholder="Ex: Devant la pharmacie centrale, près du rond-point"></textarea>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Méthode de livraison -->
-                        <h4 class="mb-3 mt-4">Méthode de livraison</h4>
-                        <div class="mb-4">
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-truck me-2"></i>Méthode de livraison</h4>
                             {% for option in shipping_options %}
                             <div class="address-card" onclick="selectShipping(this, {{ option.id }})">
                                 <div class="form-check">
@@ -313,21 +364,22 @@
                         </div>
                         
                         <!-- Méthode de paiement -->
-                        <h4 class="mb-3 mt-4">Méthode de paiement</h4>
-                        <div class="mb-4">
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-credit-card me-2"></i>Méthode de paiement</h4>
+                            
                             <!-- Carte de crédit -->
                             <div class="payment-method selected" onclick="selectPayment(this, 'card')">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="paymentCard" value="card" checked required>
-                                    <label class="form-check-label fw-bold" for="paymentCard">
+                                    <input class="form-check-input" type="radio" name="payment_method" id="payment_card" value="card" checked required>
+                                    <label class="form-check-label fw-bold" for="payment_card">
                                         <i class="far fa-credit-card me-2"></i>Carte de crédit
                                     </label>
                                 </div>
                                 <div class="mt-3" id="cardPaymentFields">
                                     <div class="mb-3">
-                                        <label for="card-element" class="form-label" id="card-element-label">Informations de carte</label>
+                                        <label for="card-element" class="form-label">Informations de carte</label>
                                         <div id="card-element"></div>
-                                        <div id="card-errors" class="error-message small"></div>
+                                        <div id="card-errors" class="error-message"></div>
                                     </div>
                                 </div>
                             </div>
@@ -335,54 +387,41 @@
                             <!-- Paiement à la livraison -->
                             <div class="payment-method" onclick="selectPayment(this, 'cod')">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="paymentCOD" value="cod" required>
-                                    <label class="form-check-label fw-bold" for="paymentCOD">
+                                    <input class="form-check-input" type="radio" name="payment_method" id="payment_cod" value="cod" required>
+                                    <label class="form-check-label fw-bold" for="payment_cod">
                                         <i class="fas fa-money-bill-wave me-2"></i>Paiement à la livraison
                                     </label>
+                                </div>
+                                <div class="mt-2 text-muted small">
+                                    Payez en espèces lors de la réception de votre commande
                                 </div>
                             </div>
                             
                             <!-- PayPal -->
                             <div class="payment-method" onclick="selectPayment(this, 'paypal')">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="paymentPaypal" value="paypal" required>
-                                    <label class="form-check-label fw-bold" for="paymentPaypal">
+                                    <input class="form-check-input" type="radio" name="payment_method" id="payment_paypal" value="paypal" required>
+                                    <label class="form-check-label fw-bold" for="payment_paypal">
                                         <i class="fab fa-paypal me-2"></i>PayPal
                                     </label>
                                 </div>
-                                <div class="mt-3 hidden" id="paypalPaymentFields">
+                                <div class="mt-3 d-none" id="paypalPaymentFields">
                                     <div id="paypal-button-container"></div>
-                                    <div id="paypal-errors" class="error-message small"></div>
+                                    <div id="paypal-errors" class="error-message"></div>
                                 </div>
                             </div>
-                            
-                            <!-- Virement SEPA -->
-                            <div class="payment-method" onclick="selectPayment(this, 'sepa')">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="paymentSepa" value="sepa" required>
-                                    <label class="form-check-label fw-bold" for="paymentSepa">
-                                        <i class="fas fa-university me-2"></i>Virement SEPA
-                                    </label>
-                                </div>
-                                <div class="mt-3 hidden" id="sepaPaymentFields">
-                                    <div class="mb-3">
-                                        <label for="iban-element" class="form-label" id="iban-element-label">IBAN</label>
-                                        <div id="iban-element"></div>
-                                        <div id="iban-errors" class="error-message small"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Champ caché pour PayPal -->
-                            <input type="hidden" name="paypal_order_id" id="paypal-order-id">
                         </div>
+                        
+                        <!-- Champs cachés pour les données de paiement -->
+                        <input type="hidden" name="payment_method_id" id="payment_method_id">
+                        <input type="hidden" name="paypal_order_id" id="paypal_order_id">
                         
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'store:cart' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Retour au panier
                             </a>
-                            <button type="submit" class="btn btn-primary px-4" id="submitButton">
-                                Payer maintenant <i class="fas fa-arrow-right ms-2"></i>
+                            <button type="submit" class="btn btn-primary btn-lg px-4" id="submitButton">
+                                <i class="fas fa-lock me-2"></i>Passer la commande
                             </button>
                         </div>
                     </form>
@@ -390,10 +429,13 @@
             </div>
         </div>
         
+        <!-- Récapitulatif -->
         <div class="col-lg-4">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <h4 class="mb-3">Récapitulatif</h4>
+                    <h4 class="mb-3">Récapitulatif de la commande</h4>
+                    
+                    <!-- Articles -->
                     <div class="mb-4">
                         {% for item in cart_items %}
                         <div class="d-flex mb-3">
@@ -406,7 +448,7 @@
                             </div>
                             <div class="flex-grow-1 ms-3">
                                 <h6 class="mb-1 small">{{ item.product.name }}</h6>
-                                <p class="text-muted mb-1 small">{{ item.quantity }} × {{ item.product.price|floatformat:2 }} €</p>
+                                <p class="text-muted mb-0 small">{{ item.quantity }} × {{ item.product.discounted_price|floatformat:2 }} €</p>
                             </div>
                             <div class="text-end">
                                 <p class="mb-0 fw-bold small">{{ item.subtotal|floatformat:2 }} €</p>
@@ -414,44 +456,45 @@
                         </div>
                         {% endfor %}
                     </div>
+                    
+                    <!-- Totaux -->
                     <div class="border-top pt-3">
                         <div class="summary-item">
                             <span>Sous-total</span>
-                            <span>{{ subtotal|floatformat:2 }} €</span>
+                            <span id="subtotal-amount">{{ subtotal|floatformat:2 }} €</span>
                         </div>
                         <div class="summary-item">
                             <span>Livraison</span>
                             <span id="shipping-cost">{{ shipping_cost|floatformat:2 }} €</span>
                         </div>
-                        <!-- Champ pour code promo -->
-                        <div class="summary-item">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="promo_code" placeholder="Code promo">
-                                <button type="button" class="btn btn-outline-primary" id="apply-promo">Appliquer</button>
-                            </div>
-                            <div id="promo-message" class="mt-2 small"></div>
-                        </div>
                         {% if discount_amount > 0 %}
                         <div class="summary-item text-success">
                             <span>Réduction</span>
-                            <span>-{{ discount_amount|floatformat:2 }} €</span>
+                            <span id="discount-amount">-{{ discount_amount|floatformat:2 }} €</span>
                         </div>
                         {% endif %}
-                        <div class="summary-item fw-bold">
+                        <div class="summary-item">
                             <span>Total</span>
                             <span id="total-amount">{{ total|floatformat:2 }} €</span>
                         </div>
                     </div>
+                    
+                    <!-- Code promo -->
+                    <div class="mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="promo_code" placeholder="Code promo">
+                            <button type="button" class="btn btn-outline-primary" id="apply-promo">Appliquer</button>
+                        </div>
+                        <div id="promo-message" class="mt-2 small"></div>
+                    </div>
                 </div>
             </div>
             
+            <!-- Sécurité -->
             <div class="card shadow-sm border-0 mt-3">
                 <div class="card-body">
-                    <h6 class="mb-3"><i class="fas fa-lock me-2 text-success"></i>Paiement sécurisé</h6>
-                    <p class="small text-muted mb-0">Toutes les transactions sont sécurisées et cryptées.</p>
-                    <div class="mt-3">
-                        <img src="{% static 'img/payment-methods.png' %}" alt="Méthodes de paiement" class="img-fluid">
-                    </div>
+                    <h6 class="mb-3"><i class="fas fa-shield-alt me-2 text-success"></i>Paiement sécurisé</h6>
+                    <p class="small text-muted mb-0">Vos données sont protégées par un cryptage SSL 256 bits.</p>
                 </div>
             </div>
         </div>
@@ -460,138 +503,180 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://js.stripe.com/v3/"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+        crossorigin=""></script>
 <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=EUR"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'store/js/geolocation.js' %}"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialiser la géolocalisation
-    const geo = window.guineaGeo;
-    const map = geo.initMap('map', {
-        center: [9.5092, -13.7122], // Conakry
-        zoom: 12
+    // Configuration des icônes Leaflet
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
     });
     
-    const latInput = document.getElementById('{{ location_form.latitude.id_for_label }}');
-    const lonInput = document.getElementById('{{ location_form.longitude.id_for_label }}');
-    const currentLocationDisplay = document.getElementById('currentLocationDisplay');
-    const coordinatesDisplay = document.getElementById('coordinatesDisplay');
-    const addressDisplay = document.getElementById('addressDisplay');
+    // Initialiser la carte Leaflet
+    const map = L.map('map').setView([9.5092, -13.7122], 10);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
     
     let marker = null;
+    const latInput = document.getElementById('latitude');
+    const lonInput = document.getElementById('longitude');
     
-    // Fonction pour mettre à jour la position
-    function updatePosition(lat, lng, showAddress = true) {
+    // Fonction pour placer un marqueur
+    function setMarker(lat, lng) {
         if (marker) {
             map.removeLayer(marker);
         }
-        
         marker = L.marker([lat, lng], {draggable: true}).addTo(map);
         latInput.value = lat.toFixed(6);
         lonInput.value = lng.toFixed(6);
         
-        // Afficher les coordonnées
-        currentLocationDisplay.classList.remove('hidden');
-        currentLocationDisplay.classList.add('show');
-        coordinatesDisplay.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-        
-        // Géocodage inverse pour obtenir l'adresse
-        if (showAddress) {
-            geo.reverseGeocode(lat, lng).then(data => {
-                if (data && data.success) {
-                    if (data.address) {
-                        addressDisplay.textContent = data.address.full_address || data.address.description;
-                    } else if (data.nominatim) {
-                        addressDisplay.textContent = data.address.display_name;
-                    }
-                } else {
-                    addressDisplay.textContent = 'Adresse non trouvée';
-                }
-            });
-        }
-        
-        // Événement de déplacement du marqueur
         marker.on('dragend', function(e) {
             const pos = e.target.getLatLng();
-            updatePosition(pos.lat, pos.lng);
+            latInput.value = pos.lat.toFixed(6);
+            lonInput.value = pos.lng.toFixed(6);
         });
     }
     
     // Clic sur la carte
     map.on('click', function(e) {
-        updatePosition(e.latlng.lat, e.latlng.lng);
+        setMarker(e.latlng.lat, e.latlng.lng);
     });
     
-    // Bouton géolocalisation
+    // Géolocalisation
     document.getElementById('getCurrentLocation').addEventListener('click', function() {
         const btn = this;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Localisation...';
         
-        geo.getCurrentPosition().then(coords => {
-            map.setView([coords.latitude, coords.longitude], 16);
-            updatePosition(coords.latitude, coords.longitude);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 15);
+                setMarker(lat, lng);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
+            }, function(error) {
+                alert('Erreur de géolocalisation: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
+            });
+        } else {
+            alert('La géolocalisation n\'est pas supportée par ce navigateur.');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
-        }).catch(error => {
-            alert('Erreur de géolocalisation: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i>Ma position actuelle';
+        }
+    });
+    
+    // Variables Stripe
+    let stripe = null;
+    let cardElement = null;
+    
+    // Initialisation Stripe avec retry
+    function initializeStripe() {
+        if (typeof Stripe !== 'undefined') {
+            try {
+                stripe = Stripe('{{ stripe_publishable_key }}');
+                const elements = stripe.elements();
+                
+                cardElement = elements.create('card', {
+                    style: {
+                        base: {
+                            fontSize: '16px',
+                            color: '#424770',
+                            '::placeholder': {
+                                color: '#aab7c4',
+                            },
+                        },
+                        invalid: {
+                            color: '#9e2146',
+                        },
+                    },
+                });
+                
+                cardElement.mount('#card-element');
+                
+                const cardErrors = document.getElementById('card-errors');
+                cardElement.on('change', function(event) {
+                    if (event.error) {
+                        cardErrors.textContent = event.error.message;
+                    } else {
+                        cardErrors.textContent = '';
+                    }
+                });
+                
+                console.log('Stripe initialisé avec succès');
+            } catch (error) {
+                console.error('Erreur initialisation Stripe:', error);
+                setTimeout(initializeStripe, 1000);
+            }
+        } else {
+            setTimeout(initializeStripe, 100);
+        }
+    }
+    
+    // Démarrer l'initialisation Stripe
+    initializeStripe();
+    
+    // Gestion du mode d'adresse
+    const existingAddressRadio = document.getElementById('existing_address');
+    const newAddressRadio = document.getElementById('new_address');
+    const existingAddressSection = document.getElementById('existingAddressSection');
+    const newAddressSection = document.getElementById('newAddressSection');
+    
+    function toggleAddressMode() {
+        if (existingAddressRadio.checked) {
+            existingAddressSection.classList.remove('d-none');
+            newAddressSection.classList.add('d-none');
+            // Désactiver la validation des champs de nouvelle adresse
+            setRequiredFields(newAddressSection, false);
+            setRequiredFields(existingAddressSection, true);
+        } else {
+            existingAddressSection.classList.add('d-none');
+            newAddressSection.classList.remove('d-none');
+            // Activer la validation des champs de nouvelle adresse
+            setRequiredFields(existingAddressSection, false);
+            setRequiredFields(newAddressSection, true);
+        }
+    }
+    
+    function setRequiredFields(section, required) {
+        const inputs = section.querySelectorAll('input[type="text"], input[type="tel"]');
+        inputs.forEach(input => {
+            if (required) {
+                input.setAttribute('required', '');
+            } else {
+                input.removeAttribute('required');
+            }
         });
-    });
+    }
     
-    // Initialiser Stripe
-    const stripe = Stripe('{{ stripe_publishable_key }}');
-    const elements = stripe.elements();
+    existingAddressRadio.addEventListener('change', toggleAddressMode);
+    newAddressRadio.addEventListener('change', toggleAddressMode);
     
-    const cardElement = elements.create('card', {
-        style: {
-            base: {
-                fontSize: '14px',
-                color: '#32325d',
-                '::placeholder': { color: '#aab7c4' },
-            }
-        },
-        hidePostalCode: true
-    });
-    
-    const ibanElement = elements.create('iban', {
-        style: {
-            base: {
-                fontSize: '14px',
-                color: '#32325d',
-                '::placeholder': { color: '#aab7c4' },
-            }
-        },
-        supportedCountries: ['SEPA']
-    });
-    
-    cardElement.mount('#card-element');
-    ibanElement.mount('#iban-element');
-    
-    // Gestion des erreurs Stripe
-    const cardErrors = document.getElementById('card-errors');
-    const ibanErrors = document.getElementById('iban-errors');
-    
-    cardElement.on('change', function(event) {
-        if (event.error) {
-            cardErrors.textContent = event.error.message;
-        } else {
-            cardErrors.textContent = '';
-        }
-    });
-    
-    ibanElement.on('change', function(event) {
-        if (event.error) {
-            ibanErrors.textContent = event.error.message;
-        } else {
-            ibanErrors.textContent = '';
-        }
-    });
+    // Initialiser le mode d'adresse
+    toggleAddressMode();
     
     // Fonctions de sélection
+    window.selectAddress = function(element, addressId) {
+        document.querySelectorAll('.address-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        element.classList.add('selected');
+        const radioInput = document.querySelector(`#address${addressId}`);
+        if (radioInput) {
+            radioInput.checked = true;
+        }
+    };
+    
     window.selectShipping = function(element, shippingId) {
         document.querySelectorAll('.address-card').forEach(card => {
             if (card.querySelector('input[name="shipping_option"]')) {
@@ -599,113 +684,76 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         element.classList.add('selected');
-        document.querySelector(`#shipping${shippingId}`).checked = true;
+        const radioInput = document.querySelector(`#shipping${shippingId}`);
+        if (radioInput) {
+            radioInput.checked = true;
+        }
         
         // Mettre à jour le coût de livraison
         const cost = element.querySelector('.text-primary').textContent;
         document.getElementById('shipping-cost').textContent = cost;
+        updateTotal();
     };
     
     window.selectPayment = function(element, paymentMethod) {
         document.querySelectorAll('.payment-method').forEach(method => method.classList.remove('selected'));
         element.classList.add('selected');
-        document.querySelector(`#payment${paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}`).checked = true;
+        
+        const radioInput = document.querySelector(`#payment_${paymentMethod}`);
+        if (radioInput) {
+            radioInput.checked = true;
+        }
         
         // Afficher/masquer les champs de paiement
         const cardFields = document.getElementById('cardPaymentFields');
         const paypalFields = document.getElementById('paypalPaymentFields');
-        const sepaFields = document.getElementById('sepaPaymentFields');
         
-        // Masquer tous les champs
-        [cardFields, paypalFields, sepaFields].forEach(field => {
-            field.classList.add('hidden');
-            field.classList.remove('show');
-        });
+        cardFields.classList.add('d-none');
+        paypalFields.classList.add('d-none');
         
-        // Afficher le champ approprié
         if (paymentMethod === 'card') {
-            cardFields.classList.remove('hidden');
-            cardFields.classList.add('show');
+            cardFields.classList.remove('d-none');
         } else if (paymentMethod === 'paypal') {
-            paypalFields.classList.remove('hidden');
-            paypalFields.classList.add('show');
-        } else if (paymentMethod === 'sepa') {
-            sepaFields.classList.remove('hidden');
-            sepaFields.classList.add('show');
+            paypalFields.classList.remove('d-none');
+            initPayPal();
         }
     };
     
-    // Soumission du formulaire
-    const form = document.getElementById('checkoutForm');
-    const submitButton = document.getElementById('submitButton');
+    function updateTotal() {
+        const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent.replace(' €', ''));
+        const shipping = parseFloat(document.getElementById('shipping-cost').textContent.replace(' €', ''));
+        const discountElement = document.getElementById('discount-amount');
+        const discount = discountElement ? parseFloat(discountElement.textContent.replace('-', '').replace(' €', '')) : 0;
+        
+        const total = subtotal + shipping - discount;
+        document.getElementById('total-amount').textContent = total.toFixed(2) + ' €';
+    }
     
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Vérifier la localisation
-        if (!latInput.value || !lonInput.value) {
-            alert('Veuillez définir votre localisation sur la carte');
-            return;
-        }
-        
-        // Vérifier la description
-        const description = document.getElementById('{{ location_form.description.id_for_label }}').value.trim();
-        if (!description) {
-            alert('Veuillez décrire votre localisation');
-            return;
-        }
-        
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Traitement...';
-        
-        const selectedPayment = document.querySelector('input[name="payment_method"]:checked').value;
-        
-        try {
-            if (selectedPayment === 'card') {
-                const { paymentMethod, error } = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement
-                });
-                
-                if (error) {
-                    cardErrors.textContent = error.message;
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = 'Payer maintenant <i class="fas fa-arrow-right ms-2"></i>';
-                    return;
+    function initPayPal() {
+        if (window.paypal && !document.querySelector('#paypal-button-container .paypal-buttons')) {
+            paypal.Buttons({
+                createOrder: function(data, actions) {
+                    const total = parseFloat(document.getElementById('total-amount').textContent.replace(' €', ''));
+                    return actions.order.create({
+                        purchase_units: [{
+                            amount: {
+                                value: total.toFixed(2)
+                            }
+                        }]
+                    });
+                },
+                onApprove: function(data, actions) {
+                    document.getElementById('paypal_order_id').value = data.orderID;
+                    return actions.order.capture().then(function(details) {
+                        document.getElementById('checkoutForm').submit();
+                    });
+                },
+                onError: function(err) {
+                    document.getElementById('paypal-errors').textContent = 'Erreur PayPal: ' + err;
                 }
-                
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = 'payment_method_id';
-                hiddenInput.value = paymentMethod.id;
-                form.appendChild(hiddenInput);
-            } else if (selectedPayment === 'sepa') {
-                const { paymentMethod, error } = await stripe.createPaymentMethod({
-                    type: 'sepa_debit',
-                    sepa_debit: ibanElement
-                });
-                
-                if (error) {
-                    ibanErrors.textContent = error.message;
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = 'Payer maintenant <i class="fas fa-arrow-right ms-2"></i>';
-                    return;
-                }
-                
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = 'payment_method_id';
-                hiddenInput.value = paymentMethod.id;
-                form.appendChild(hiddenInput);
-            }
-            
-            form.submit();
-        } catch (error) {
-            console.error('Erreur:', error);
-            submitButton.disabled = false;
-            submitButton.innerHTML = 'Payer maintenant <i class="fas fa-arrow-right ms-2"></i>';
+            }).render('#paypal-button-container');
         }
-    });
+    }
     
     // Code promo
     document.getElementById('apply-promo').addEventListener('click', function() {
@@ -729,7 +777,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 promoMessage.innerHTML = '<span class="text-success">Code promo appliqué !</span>';
-                document.getElementById('total-amount').textContent = `${data.new_total.toFixed(2)} €`;
+                document.getElementById('discount-amount').textContent = `-${data.discount_amount.toFixed(2)} €`;
+                updateTotal();
             } else {
                 promoMessage.innerHTML = `<span class="text-danger">${data.message}</span>`;
             }
@@ -738,6 +787,101 @@ document.addEventListener('DOMContentLoaded', function() {
             promoMessage.innerHTML = '<span class="text-danger">Erreur lors de l\'application du code.</span>';
         });
     });
+    
+    // Validation et soumission du formulaire
+    const form = document.getElementById('checkoutForm');
+    const submitButton = document.getElementById('submitButton');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Traitement...';
+        
+        try {
+            // Validation des champs requis selon le mode
+            let isValid = true;
+            const addressMode = document.querySelector('input[name="address_mode"]:checked').value;
+            
+            if (addressMode === 'new') {
+                // Valider les champs de nouvelle adresse
+                const requiredFields = ['full_name', 'street_address', 'postal_code', 'city', 'country'];
+                for (const fieldName of requiredFields) {
+                    const field = document.getElementById(fieldName);
+                    if (!field.value.trim()) {
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                    }
+                }
+            } else {
+                // Vérifier qu'une adresse existante est sélectionnée
+                const selectedAddress = document.querySelector('input[name="address"]:checked');
+                if (!selectedAddress) {
+                    alert('Veuillez sélectionner une adresse de livraison.');
+                    isValid = false;
+                }
+            }
+            
+            // Vérifier la méthode de livraison
+            const selectedShipping = document.querySelector('input[name="shipping_option"]:checked');
+            if (!selectedShipping) {
+                alert('Veuillez sélectionner une méthode de livraison.');
+                isValid = false;
+            }
+            
+            // Vérifier la méthode de paiement
+            const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+            if (!selectedPayment) {
+                alert('Veuillez sélectionner une méthode de paiement.');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
+                return;
+            }
+            
+            // Traitement du paiement Stripe
+            if (selectedPayment.value === 'card' && stripe && cardElement) {
+                const { paymentMethod, error } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement
+                });
+                
+                if (error) {
+                    document.getElementById('card-errors').textContent = error.message;
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
+                    return;
+                }
+                
+                document.getElementById('payment_method_id').value = paymentMethod.id;
+            }
+            
+            // Soumettre le formulaire
+            form.submit();
+            
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue. Veuillez réessayer.');
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
+        }
+    });
+    
+    // Initialiser les sélections par défaut
+    const firstShipping = document.querySelector('input[name="shipping_option"]:checked');
+    if (firstShipping) {
+        firstShipping.closest('.address-card').classList.add('selected');
+    }
+    
+    const firstPayment = document.querySelector('input[name="payment_method"]:checked');
+    if (firstPayment) {
+        firstPayment.closest('.payment-method').classList.add('selected');
+    }
 });
 </script>
 {% endblock %}

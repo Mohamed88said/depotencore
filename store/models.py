@@ -53,7 +53,7 @@ class Discount(models.Model):
 # === Modèle Product ===
 class Product(models.Model):
     SIZE_CHOICES = [
-        ('', 'Select Size'),
+        ('', 'Sélectionner une taille'),
         ('XS', 'Extra Small'),
         ('S', 'Small'),
         ('M', 'Medium'),
@@ -61,18 +61,8 @@ class Product(models.Model):
         ('XL', 'Extra Large'),
         ('XXL', 'Double Extra Large'),
         ('XXXL', 'Triple Extra Large'),
-        ('One Size', 'One Size Fits All'),
-        ('Custom', 'Custom Size'),
-        ('Free Size', 'Free Size'),
-        ('Adjustable', 'Adjustable Size'),
-        ('Petite', 'Petite Size'),
-        ('Tall', 'Tall Size'),
-        ('Plus Size', 'Plus Size'),
-        ('Big and Tall', 'Big and Tall'),
-        ('Junior', 'Junior Size'),
-        ('Maternity', 'Maternity Size'),
-        ('Kids', 'Kids Size'),
-        ('Infant', 'Infant Size'),
+        ('One Size', 'Taille unique'),
+        ('Custom', 'Taille personnalisée'),
     ]
 
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='products')
@@ -128,16 +118,6 @@ class Product(models.Model):
         return active_discount.percentage if active_discount else 0
 
     @property
-    def active_discount_end_date(self):
-        current_time = timezone.now()
-        active_discount = self.discounts.filter(
-            is_active=True, 
-            start_date__lte=current_time, 
-            end_date__gte=current_time
-        ).order_by('-percentage').first()
-        return active_discount.end_date if active_discount else None
-
-    @property
     def is_sold_out(self):
         return self.stock == 0 or self.is_sold or self.sold_out
 
@@ -159,6 +139,14 @@ class Cart(models.Model):
 
     def __str__(self):
         return f"Panier de {self.user.username}"
+
+    @property
+    def total_items(self):
+        return sum(item.quantity for item in self.items.all())
+
+    @property
+    def subtotal(self):
+        return sum(item.subtotal for item in self.items.all())
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
@@ -209,7 +197,7 @@ class Address(models.Model):
         ordering = ['-is_default']
 
     def __str__(self):
-        return f"{self.full_name}, {self.street_address}, {self.city}, {self.postal_code}, {self.country}"
+        return f"{self.full_name}, {self.street_address}, {self.city}"
 
     def save(self, *args, **kwargs):
         if self.is_default:
@@ -236,15 +224,20 @@ class Order(models.Model):
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders_sold')
     total = models.DecimalField(max_digits=10, decimal_places=2)
     shipping_address = models.ForeignKey('Address', on_delete=models.SET_NULL, null=True, blank=True)
-    roasting_option = models.ForeignKey('ShippingOption', on_delete=models.SET_NULL, null=True, blank=True)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Nouveau champ
-    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Nouveau champ
-    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Nouveau champ
+    shipping_option = models.ForeignKey('ShippingOption', on_delete=models.SET_NULL, null=True, blank=True)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='card')
     charge_id = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Géolocalisation
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location_description = models.TextField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Commande"
@@ -253,10 +246,6 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Commande {self.id} par {self.user.username}"
-
-
-
-
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
@@ -271,25 +260,6 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name} dans la commande {self.order.id}"
-
-# === Extension de SellerProfile ===
-class SellerProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller_profile')
-    first_name = models.CharField(max_length=100, blank=True, null=True)
-    last_name = models.CharField(max_length=100, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-    business_name = models.CharField(max_length=200, blank=True, null=True)
-    business_address = models.CharField(max_length=255, blank=True, null=True)
-    contact_phone = models.CharField(max_length=20, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Profil vendeur"
-        verbose_name_plural = "Profils vendeurs"
-
-    def __str__(self):
-        return f"Profil de {self.user.username}"
 
 # === Modèle Favorite ===
 class Favorite(models.Model):
@@ -423,19 +393,24 @@ class SellerRating(models.Model):
     def __str__(self):
         return f"Note {self.rating}/5 par {self.rater}"
 
-# === Modèle UserProductView ===
-class UserProductView(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='user_views')
-    view_date = models.DateTimeField(auto_now_add=True)
+# === Modèle SellerProfile ===
+class SellerProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller_profile')
+    first_name = models.CharField(max_length=100, blank=True, null=True)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    business_name = models.CharField(max_length=200, blank=True, null=True)
+    business_address = models.CharField(max_length=255, blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
 
     class Meta:
-        verbose_name = "Vue utilisateur"
-        verbose_name_plural = "Vues utilisateurs"
-        unique_together = ('user', 'product', 'view_date')
+        verbose_name = "Profil vendeur"
+        verbose_name_plural = "Profils vendeurs"
 
     def __str__(self):
-        return f"{self.user} a vu {self.product}"
+        return f"Profil de {self.user.username}"
 
 # === Modèle Subscription ===
 class Subscription(models.Model):
@@ -560,19 +535,9 @@ class GuineaAddress(models.Model):
         return f"{self.description[:50]} - {self.quartier.name}"
     
     @property
-    def full_address(self):
-        """Retourne l'adresse complète formatée"""
-        return f"{self.description}, {self.quartier.name}, {self.prefecture.name}, {self.region.name}"
-    
-    @property
     def google_maps_link(self):
         """Génère un lien Google Maps"""
         return f"https://www.google.com/maps?q={self.latitude},{self.longitude}"
-    
-    def increment_usage(self):
-        """Incrémente le compteur d'utilisation"""
-        self.usage_count += 1
-        self.save(update_fields=['usage_count'])
 
 class UserLocation(models.Model):
     """Localisation d'un utilisateur avec photo et description"""
@@ -610,62 +575,6 @@ class UserLocation(models.Model):
     def google_maps_link(self):
         """Génère un lien Google Maps"""
         return f"https://www.google.com/maps?q={self.latitude},{self.longitude}"
-    
-    def save(self, *args, **kwargs):
-        if self.photo and not self.photo_latitude:
-            self.extract_gps_from_photo()
-        super().save(*args, **kwargs)
-    
-    def extract_gps_from_photo(self):
-        """Extrait les coordonnées GPS de la photo"""
-        try:
-            image = Image.open(self.photo.path)
-            exifdata = image.getexif()
-            
-            if exifdata is not None:
-                for tag_id in exifdata:
-                    tag = TAGS.get(tag_id, tag_id)
-                    if tag == "GPSInfo":
-                        gps_data = exifdata.get_ifd(tag_id)
-                        lat, lon = self._get_decimal_from_dms(gps_data)
-                        if lat and lon:
-                            self.photo_latitude = lat
-                            self.photo_longitude = lon
-                            # Si pas de coordonnées manuelles, utiliser celles de la photo
-                            if not self.latitude or not self.longitude:
-                                self.latitude = lat
-                                self.longitude = lon
-        except Exception as e:
-            print(f"Erreur extraction GPS: {e}")
-    
-    def _get_decimal_from_dms(self, gps_data):
-        """Convertit les coordonnées DMS en décimal"""
-        try:
-            lat_dms = gps_data.get(2)  # GPSLatitude
-            lat_ref = gps_data.get(1)  # GPSLatitudeRef
-            lon_dms = gps_data.get(4)  # GPSLongitude
-            lon_ref = gps_data.get(3)  # GPSLongitudeRef
-            
-            if lat_dms and lon_dms:
-                lat = self._dms_to_decimal(lat_dms, lat_ref)
-                lon = self._dms_to_decimal(lon_dms, lon_ref)
-                return lat, lon
-        except:
-            pass
-        return None, None
-    
-    def _dms_to_decimal(self, dms, ref):
-        """Convertit DMS en décimal"""
-        degrees = float(dms[0])
-        minutes = float(dms[1])
-        seconds = float(dms[2])
-        
-        decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
-        
-        if ref in ['S', 'W']:
-            decimal = -decimal
-        
-        return decimal
 
 class DeliveryLocation(models.Model):
     """Localisation spécifique pour les livraisons"""
@@ -683,16 +592,8 @@ class DeliveryLocation(models.Model):
     
     def __str__(self):
         return f"Livraison - {self.user_location.description[:30]}"
-    
-    def save(self, *args, **kwargs):
-        if self.is_default:
-            # Désactiver les autres adresses par défaut
-            DeliveryLocation.objects.filter(
-                user_location__user=self.user_location.user,
-                is_default=True
-            ).exclude(id=self.id).update(is_default=False)
-        super().save(*args, **kwargs)
-# === Signal pour attribuer automatiquement le seller à l'Order ===
+
+# === Signaux ===
 @receiver(post_save, sender=Order)
 def set_order_seller(sender, instance, created, **kwargs):
     if created and not instance.seller:

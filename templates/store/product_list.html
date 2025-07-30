@@ -4,8 +4,25 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'store/css/custom.css' %}">
 <style>
-    .hero-banner { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{% static "img/banner-bg.jpg" %}'); background-size: cover; background-position: center; color: white; padding: 5rem 0; margin-bottom: 2rem; border-radius: var(--rounded-lg); }
-    .discount-badge { position: absolute; top: 10px; left: 10px; background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; }
+    .hero-banner { 
+        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{% static "img/banner-bg.jpg" %}'); 
+        background-size: cover; 
+        background-position: center; 
+        color: white; 
+        padding: 5rem 0; 
+        margin-bottom: 2rem; 
+        border-radius: var(--rounded-lg); 
+    }
+    .discount-badge { 
+        position: absolute; 
+        top: 10px; 
+        left: 10px; 
+        background-color: #dc3545; 
+        color: white; 
+        padding: 2px 8px; 
+        border-radius: 5px; 
+        font-size: 0.8rem; 
+    }
 </style>
 {% endblock %}
 
@@ -61,6 +78,13 @@
                     <input type="number" name="price_max" class="form-control" placeholder="Max" value="{{ price_max }}">
                 </div>
             </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+        </div>
+        <div class="row g-3 mt-2">
             <div class="col-md-3">
                 <select name="size" class="form-select">
                     <option value="">Toutes tailles</option>
@@ -75,13 +99,8 @@
             <div class="col-md-3">
                 <input type="text" name="color" class="form-control" placeholder="Couleur" value="{{ color_filter }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <input type="text" name="material" class="form-control" placeholder="Matériau" value="{{ material_filter }}">
-            </div>
-            <div class="col-md-1">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-filter"></i>
-                </button>
             </div>
         </div>
     </form>
@@ -90,7 +109,7 @@
         {% for product in page_obj %}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3 product-item">
                 <div class="card product-card h-100 position-relative">
-                    {% if product.discounted_price < product.price %}
+                    {% if product.active_discount_percentage > 0 %}
                         <span class="discount-badge">-{{ product.active_discount_percentage }}%</span>
                     {% endif %}
                     <div class="product-img-container">
@@ -103,14 +122,12 @@
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h5 class="card-title mb-0">{{ product.name|truncatechars:30 }}</h5>
-                            {% if request.user in product.favorite_set.all %}
-                                <i class="fas fa-heart text-danger favorite-icon" data-product-id="{{ product.id }}" data-bs-toggle="tooltip" title="Favori"></i>
-                            {% else %}
+                            {% if user.is_authenticated %}
                                 <i class="far fa-heart text-muted favorite-icon" data-product-id="{{ product.id }}" data-bs-toggle="tooltip" title="Ajouter aux favoris"></i>
                             {% endif %}
                         </div>
                         <div class="mb-2">
-                            {% if product.discounted_price < product.price %}
+                            {% if product.active_discount_percentage > 0 %}
                                 <span class="original-price me-2">{{ product.price }} €</span>
                                 <span class="price">{{ product.discounted_price }} €</span>
                             {% else %}
@@ -143,12 +160,12 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                    <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}">
                         <i class="fas fa-angle-double-left"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}">
                         <i class="fas fa-angle-left"></i>
                     </a>
                 </li>
@@ -160,18 +177,18 @@
                     </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">{{ num }}</a>
+                        <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}">{{ num }}</a>
                     </li>
                 {% endif %}
             {% endfor %}
             {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}">
                         <i class="fas fa-angle-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}{% if sort_by != 'default' %}&sort_by={{ sort_by }}{% endif %}{% if size_filter %}&size={{ size_filter }}{% endif %}{% if brand_filter %}&brand={{ brand_filter }}{% endif %}{% if color_filter %}&color={{ color_filter }}{% endif %}{% if material_filter %}&material={{ material_filter }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if price_min %}&price_min={{ price_min }}{% endif %}{% if price_max %}&price_max={{ price_max }}{% endif %}">
                         <i class="fas fa-angle-double-right"></i>
                     </a>
                 </li>
@@ -183,7 +200,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script>
 function getCookie(name) {
     let cookieValue = null;
@@ -204,36 +220,38 @@ const gridViewBtn = document.getElementById('gridViewBtn');
 const listViewBtn = document.getElementById('listViewBtn');
 const productContainer = document.getElementById('productContainer');
 
-gridViewBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    productContainer.classList.remove('list-view');
-    productContainer.classList.add('grid-view');
-    document.querySelectorAll('.product-item').forEach(item => {
-        item.className = 'col-12 col-sm-6 col-md-4 col-lg-3 product-item';
+if (gridViewBtn && listViewBtn && productContainer) {
+    gridViewBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        productContainer.classList.remove('list-view');
+        productContainer.classList.add('grid-view');
+        document.querySelectorAll('.product-item').forEach(item => {
+            item.className = 'col-12 col-sm-6 col-md-4 col-lg-3 product-item';
+        });
+        gridViewBtn.classList.remove('btn-outline-secondary');
+        gridViewBtn.classList.add('btn-primary');
+        listViewBtn.classList.remove('btn-primary');
+        listViewBtn.classList.add('btn-outline-secondary');
+        localStorage.setItem('productView', 'grid');
     });
-    gridViewBtn.classList.remove('btn-outline-secondary');
-    gridViewBtn.classList.add('btn-primary');
-    listViewBtn.classList.remove('btn-primary');
-    listViewBtn.classList.add('btn-outline-secondary');
-    localStorage.setItem('productView', 'grid');
-});
 
-listViewBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    productContainer.classList.remove('grid-view');
-    productContainer.classList.add('list-view');
-    document.querySelectorAll('.product-item').forEach(item => {
-        item.className = 'col-12 product-item mb-4';
+    listViewBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        productContainer.classList.remove('grid-view');
+        productContainer.classList.add('list-view');
+        document.querySelectorAll('.product-item').forEach(item => {
+            item.className = 'col-12 product-item mb-4';
+        });
+        listViewBtn.classList.remove('btn-outline-secondary');
+        listViewBtn.classList.add('btn-primary');
+        gridViewBtn.classList.remove('btn-primary');
+        gridViewBtn.classList.add('btn-outline-secondary');
+        localStorage.setItem('productView', 'list');
     });
-    listViewBtn.classList.remove('btn-outline-secondary');
-    listViewBtn.classList.add('btn-primary');
-    gridViewBtn.classList.remove('btn-primary');
-    gridViewBtn.classList.add('btn-outline-secondary');
-    localStorage.setItem('productView', 'list');
-});
 
-const savedView = localStorage.getItem('productView') || 'grid';
-if (savedView === 'list') listViewBtn.click(); else gridViewBtn.click();
+    const savedView = localStorage.getItem('productView') || 'grid';
+    if (savedView === 'list') listViewBtn.click(); else gridViewBtn.click();
+}
 
 document.querySelectorAll('.add-to-cart').forEach(button => {
     button.addEventListener('click', function(event) {
@@ -260,7 +278,6 @@ document.querySelectorAll('.add-to-cart').forEach(button => {
                 const cartCount = document.querySelector('.cart-count');
                 if (cartCount && data.cart_count) {
                     cartCount.textContent = data.cart_count;
-                    gsap.to(cartCount, { scale: 1.5, duration: 0.3, yoyo: true, repeat: 1 });
                 }
             }
         })
@@ -273,7 +290,7 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
         e.preventDefault();
         const productId = this.getAttribute('data-product-id');
         const csrfToken = getCookie('csrftoken');
-        const toggleFavoriteUrl = `{% url 'store:toggle_favorite' 0 %}`.replace('0', productId); // Remplace 0 par productId dynamiquement
+        const toggleFavoriteUrl = `/products/${productId}/toggle-favorite/`;
 
         try {
             const response = await fetch(toggleFavoriteUrl, {
@@ -289,7 +306,6 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
             const data = await response.json();
 
             if (data.status === 'success') {
-                // Met à jour l'icône en fonction de l'action
                 this.classList.toggle('far', data.action === 'removed');
                 this.classList.toggle('fas', data.action === 'added');
                 this.classList.toggle('text-danger', data.action === 'added');
@@ -297,15 +313,6 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
 
                 const newTitle = data.action === 'added' ? 'Favori' : 'Ajouter aux favoris';
                 this.setAttribute('title', newTitle);
-
-                Toastify({
-                    text: `Produit ${data.action === 'added' ? 'ajouté aux' : 'retiré des'} favoris`,
-                    duration: 3000,
-                    close: true,
-                    gravity: "top",
-                    position: "right",
-                    backgroundColor: data.action === 'added' ? "#28a745" : "#dc3545",
-                }).showToast();
             } else {
                 alert(`Erreur: ${data.message || 'Action non réussie'}`);
             }

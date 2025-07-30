@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 {% extends 'base.html' %}
 {% load static %}
 
@@ -119,10 +118,10 @@
     .map-container {
         position: relative;
         width: 100%;
-        height: 300px;
+        height: 300px !important;
         border: 2px solid #e2e8f0;
         border-radius: 8px;
-        overflow: hidden;
+        overflow: hidden !important;
         margin-bottom: 1rem;
     }
     
@@ -166,7 +165,7 @@
         border-color: #2563eb;
     }
     
-    #card-element, #iban-element {
+    #card-element {
         padding: 0.75rem;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
@@ -179,21 +178,12 @@
         margin-top: 0.5rem;
     }
     
-    .d-none {
+    .hidden {
         display: none !important;
     }
     
-    .d-block {
+    .show {
         display: block !important;
-    }
-    
-    /* Styles pour les champs cachés mais requis */
-    .hidden-required {
-        position: absolute;
-        left: -9999px;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
     }
     
     @media (max-width: 768px) {
@@ -207,7 +197,7 @@
         }
         
         .map-container {
-            height: 250px;
+            height: 250px !important;
         }
     }
 </style>
@@ -235,7 +225,7 @@
         <div class="col-lg-8">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <form method="post" id="checkoutForm" action="{% url 'store:process_payment' %}" novalidate>
+                    <form method="post" id="checkoutForm" action="{% url 'store:process_payment' %}">
                         {% csrf_token %}
                         
                         <!-- Section Adresse de livraison -->
@@ -254,13 +244,13 @@
                             </div>
                             
                             <!-- Adresses existantes -->
-                            <div id="existingAddressSection" class="{% if not addresses %}d-none{% endif %}">
+                            <div id="existingAddressSection" class="{% if not addresses %}hidden{% endif %}">
                                 {% if addresses %}
                                     {% for address in addresses %}
                                     <div class="address-card" onclick="selectAddress(this, {{ address.id }})">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="address" id="address{{ address.id }}" value="{{ address.id }}" {% if address.is_default %}checked{% endif %}>
-                                            <label class="form-check-label fw-bold" for="address{{ address.id }}">
+                                            <input class="form-check-input" type="radio" name="address" id="address_{{ address.id }}" value="{{ address.id }}" {% if address.is_default %}checked{% endif %}>
+                                            <label class="form-check-label fw-bold" for="address_{{ address.id }}">
                                                 {{ address.full_name }}
                                                 {% if address.is_default %}<span class="badge bg-primary ms-2">Par défaut</span>{% endif %}
                                             </label>
@@ -272,11 +262,16 @@
                                         </div>
                                     </div>
                                     {% endfor %}
+                                    <div class="mt-3">
+                                        <a href="{% url 'store:add_address' %}?next={% url 'store:checkout' %}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-plus me-1"></i>Ajouter une nouvelle adresse
+                                        </a>
+                                    </div>
                                 {% endif %}
                             </div>
                             
                             <!-- Formulaire nouvelle adresse -->
-                            <div id="newAddressSection" class="{% if addresses %}d-none{% endif %}">
+                            <div id="newAddressSection" class="{% if addresses %}hidden{% endif %}">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label for="full_name" class="form-label">Nom complet *</label>
@@ -347,8 +342,8 @@
                             {% for option in shipping_options %}
                             <div class="address-card" onclick="selectShipping(this, {{ option.id }})">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="shipping_option" id="shipping{{ option.id }}" value="{{ option.id }}" {% if forloop.first %}checked{% endif %} required>
-                                    <label class="form-check-label fw-bold" for="shipping{{ option.id }}">
+                                    <input class="form-check-input" type="radio" name="shipping_option" id="shipping_{{ option.id }}" value="{{ option.id }}" {% if forloop.first %}checked{% endif %} required>
+                                    <label class="form-check-label fw-bold" for="shipping_{{ option.id }}">
                                         {{ option.name }}
                                     </label>
                                 </div>
@@ -405,7 +400,7 @@
                                         <i class="fab fa-paypal me-2"></i>PayPal
                                     </label>
                                 </div>
-                                <div class="mt-3 d-none" id="paypalPaymentFields">
+                                <div class="mt-3 hidden" id="paypalPaymentFields">
                                     <div id="paypal-button-container"></div>
                                     <div id="paypal-errors" class="error-message"></div>
                                 </div>
@@ -511,12 +506,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Configuration des icônes Leaflet
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
-    });
+    L.Icon.Default.prototype.options.iconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
+    L.Icon.Default.prototype.options.iconRetinaUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png';
+    L.Icon.Default.prototype.options.shadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
     
     // Initialiser la carte Leaflet
     const map = L.map('map').setView([9.5092, -13.7122], 10);
@@ -633,16 +625,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const newAddressSection = document.getElementById('newAddressSection');
     
     function toggleAddressMode() {
-        if (existingAddressRadio.checked) {
-            existingAddressSection.classList.remove('d-none');
-            newAddressSection.classList.add('d-none');
-            // Désactiver la validation des champs de nouvelle adresse
+        if (existingAddressRadio && existingAddressRadio.checked) {
+            existingAddressSection.classList.remove('hidden');
+            newAddressSection.classList.add('hidden');
             setRequiredFields(newAddressSection, false);
             setRequiredFields(existingAddressSection, true);
-        } else {
-            existingAddressSection.classList.add('d-none');
-            newAddressSection.classList.remove('d-none');
-            // Activer la validation des champs de nouvelle adresse
+        } else if (newAddressRadio && newAddressRadio.checked) {
+            existingAddressSection.classList.add('hidden');
+            newAddressSection.classList.remove('hidden');
             setRequiredFields(existingAddressSection, false);
             setRequiredFields(newAddressSection, true);
         }
@@ -659,8 +649,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    existingAddressRadio.addEventListener('change', toggleAddressMode);
-    newAddressRadio.addEventListener('change', toggleAddressMode);
+    if (existingAddressRadio) {
+        existingAddressRadio.addEventListener('change', toggleAddressMode);
+    }
+    if (newAddressRadio) {
+        newAddressRadio.addEventListener('change', toggleAddressMode);
+    }
     
     // Initialiser le mode d'adresse
     toggleAddressMode();
@@ -671,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function() {
             card.classList.remove('selected');
         });
         element.classList.add('selected');
-        const radioInput = document.querySelector(`#address${addressId}`);
+        const radioInput = document.querySelector(`#address_${addressId}`);
         if (radioInput) {
             radioInput.checked = true;
         }
@@ -684,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         element.classList.add('selected');
-        const radioInput = document.querySelector(`#shipping${shippingId}`);
+        const radioInput = document.querySelector(`#shipping_${shippingId}`);
         if (radioInput) {
             radioInput.checked = true;
         }
@@ -708,179 +702,206 @@ document.addEventListener('DOMContentLoaded', function() {
         const cardFields = document.getElementById('cardPaymentFields');
         const paypalFields = document.getElementById('paypalPaymentFields');
         
-        cardFields.classList.add('d-none');
-        paypalFields.classList.add('d-none');
+        if (cardFields) cardFields.classList.add('hidden');
+        if (paypalFields) paypalFields.classList.add('hidden');
         
-        if (paymentMethod === 'card') {
-            cardFields.classList.remove('d-none');
-        } else if (paymentMethod === 'paypal') {
-            paypalFields.classList.remove('d-none');
+        if (paymentMethod === 'card' && cardFields) {
+            cardFields.classList.remove('hidden');
+        } else if (paymentMethod === 'paypal' && paypalFields) {
+            paypalFields.classList.remove('hidden');
             initPayPal();
         }
     };
     
     function updateTotal() {
-        const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent.replace(' €', ''));
-        const shipping = parseFloat(document.getElementById('shipping-cost').textContent.replace(' €', ''));
+        const subtotalElement = document.getElementById('subtotal-amount');
+        const shippingElement = document.getElementById('shipping-cost');
         const discountElement = document.getElementById('discount-amount');
-        const discount = discountElement ? parseFloat(discountElement.textContent.replace('-', '').replace(' €', '')) : 0;
+        const totalElement = document.getElementById('total-amount');
         
-        const total = subtotal + shipping - discount;
-        document.getElementById('total-amount').textContent = total.toFixed(2) + ' €';
+        if (subtotalElement && shippingElement && totalElement) {
+            const subtotal = parseFloat(subtotalElement.textContent.replace(' €', ''));
+            const shipping = parseFloat(shippingElement.textContent.replace(' €', ''));
+            const discount = discountElement ? parseFloat(discountElement.textContent.replace('-', '').replace(' €', '')) : 0;
+            
+            const total = subtotal + shipping - discount;
+            totalElement.textContent = total.toFixed(2) + ' €';
+        }
     }
     
     function initPayPal() {
         if (window.paypal && !document.querySelector('#paypal-button-container .paypal-buttons')) {
-            paypal.Buttons({
-                createOrder: function(data, actions) {
-                    const total = parseFloat(document.getElementById('total-amount').textContent.replace(' €', ''));
-                    return actions.order.create({
-                        purchase_units: [{
-                            amount: {
-                                value: total.toFixed(2)
-                            }
-                        }]
-                    });
-                },
-                onApprove: function(data, actions) {
-                    document.getElementById('paypal_order_id').value = data.orderID;
-                    return actions.order.capture().then(function(details) {
-                        document.getElementById('checkoutForm').submit();
-                    });
-                },
-                onError: function(err) {
-                    document.getElementById('paypal-errors').textContent = 'Erreur PayPal: ' + err;
-                }
-            }).render('#paypal-button-container');
+            const totalElement = document.getElementById('total-amount');
+            if (totalElement) {
+                const total = parseFloat(totalElement.textContent.replace(' €', ''));
+                
+                paypal.Buttons({
+                    createOrder: function(data, actions) {
+                        return actions.order.create({
+                            purchase_units: [{
+                                amount: {
+                                    value: total.toFixed(2)
+                                }
+                            }]
+                        });
+                    },
+                    onApprove: function(data, actions) {
+                        document.getElementById('paypal_order_id').value = data.orderID;
+                        return actions.order.capture().then(function(details) {
+                            document.getElementById('checkoutForm').submit();
+                        });
+                    },
+                    onError: function(err) {
+                        const errorElement = document.getElementById('paypal-errors');
+                        if (errorElement) {
+                            errorElement.textContent = 'Erreur PayPal: ' + err;
+                        }
+                    }
+                }).render('#paypal-button-container');
+            }
         }
     }
     
     // Code promo
-    document.getElementById('apply-promo').addEventListener('click', function() {
-        const promoCode = document.getElementById('promo_code').value;
-        const promoMessage = document.getElementById('promo-message');
-        
-        if (!promoCode) {
-            promoMessage.innerHTML = '<span class="text-danger">Veuillez entrer un code promo.</span>';
-            return;
-        }
-        
-        fetch('{% url 'store:apply_promo_code' %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-            },
-            body: JSON.stringify({ promo_code: promoCode })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                promoMessage.innerHTML = '<span class="text-success">Code promo appliqué !</span>';
-                document.getElementById('discount-amount').textContent = `-${data.discount_amount.toFixed(2)} €`;
-                updateTotal();
-            } else {
-                promoMessage.innerHTML = `<span class="text-danger">${data.message}</span>`;
+    const applyPromoBtn = document.getElementById('apply-promo');
+    if (applyPromoBtn) {
+        applyPromoBtn.addEventListener('click', function() {
+            const promoCode = document.getElementById('promo_code').value;
+            const promoMessage = document.getElementById('promo-message');
+            
+            if (!promoCode) {
+                promoMessage.innerHTML = '<span class="text-danger">Veuillez entrer un code promo.</span>';
+                return;
             }
-        })
-        .catch(error => {
-            promoMessage.innerHTML = '<span class="text-danger">Erreur lors de l\'application du code.</span>';
+            
+            fetch('{% url 'store:apply_promo_code' %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: JSON.stringify({ promo_code: promoCode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    promoMessage.innerHTML = '<span class="text-success">Code promo appliqué !</span>';
+                    const discountElement = document.getElementById('discount-amount');
+                    if (discountElement) {
+                        discountElement.textContent = `-${data.discount_amount.toFixed(2)} €`;
+                    }
+                    updateTotal();
+                } else {
+                    promoMessage.innerHTML = `<span class="text-danger">${data.message}</span>`;
+                }
+            })
+            .catch(error => {
+                promoMessage.innerHTML = '<span class="text-danger">Erreur lors de l\'application du code.</span>';
+            });
         });
-    });
+    }
     
     // Validation et soumission du formulaire
     const form = document.getElementById('checkoutForm');
     const submitButton = document.getElementById('submitButton');
     
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Traitement...';
-        
-        try {
-            // Validation des champs requis selon le mode
-            let isValid = true;
-            const addressMode = document.querySelector('input[name="address_mode"]:checked').value;
+    if (form && submitButton) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            if (addressMode === 'new') {
-                // Valider les champs de nouvelle adresse
-                const requiredFields = ['full_name', 'street_address', 'postal_code', 'city', 'country'];
-                for (const fieldName of requiredFields) {
-                    const field = document.getElementById(fieldName);
-                    if (!field.value.trim()) {
-                        field.classList.add('is-invalid');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Traitement...';
+            
+            try {
+                // Validation des champs requis selon le mode
+                let isValid = true;
+                const addressModeElement = document.querySelector('input[name="address_mode"]:checked');
+                const addressMode = addressModeElement ? addressModeElement.value : 'existing';
+                
+                if (addressMode === 'new') {
+                    // Valider les champs de nouvelle adresse
+                    const requiredFields = ['full_name', 'street_address', 'postal_code', 'city', 'country'];
+                    for (const fieldName of requiredFields) {
+                        const field = document.getElementById(fieldName);
+                        if (field && !field.value.trim()) {
+                            field.classList.add('is-invalid');
+                            isValid = false;
+                        } else if (field) {
+                            field.classList.remove('is-invalid');
+                        }
+                    }
+                } else {
+                    // Vérifier qu'une adresse existante est sélectionnée
+                    const selectedAddress = document.querySelector('input[name="address"]:checked');
+                    if (!selectedAddress) {
+                        alert('Veuillez sélectionner une adresse de livraison.');
                         isValid = false;
-                    } else {
-                        field.classList.remove('is-invalid');
                     }
                 }
-            } else {
-                // Vérifier qu'une adresse existante est sélectionnée
-                const selectedAddress = document.querySelector('input[name="address"]:checked');
-                if (!selectedAddress) {
-                    alert('Veuillez sélectionner une adresse de livraison.');
+                
+                // Vérifier la méthode de livraison
+                const selectedShipping = document.querySelector('input[name="shipping_option"]:checked');
+                if (!selectedShipping) {
+                    alert('Veuillez sélectionner une méthode de livraison.');
                     isValid = false;
                 }
-            }
-            
-            // Vérifier la méthode de livraison
-            const selectedShipping = document.querySelector('input[name="shipping_option"]:checked');
-            if (!selectedShipping) {
-                alert('Veuillez sélectionner une méthode de livraison.');
-                isValid = false;
-            }
-            
-            // Vérifier la méthode de paiement
-            const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
-            if (!selectedPayment) {
-                alert('Veuillez sélectionner une méthode de paiement.');
-                isValid = false;
-            }
-            
-            if (!isValid) {
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
-                return;
-            }
-            
-            // Traitement du paiement Stripe
-            if (selectedPayment.value === 'card' && stripe && cardElement) {
-                const { paymentMethod, error } = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement
-                });
                 
-                if (error) {
-                    document.getElementById('card-errors').textContent = error.message;
+                // Vérifier la méthode de paiement
+                const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+                if (!selectedPayment) {
+                    alert('Veuillez sélectionner une méthode de paiement.');
+                    isValid = false;
+                }
+                
+                if (!isValid) {
                     submitButton.disabled = false;
                     submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
                     return;
                 }
                 
-                document.getElementById('payment_method_id').value = paymentMethod.id;
+                // Traitement du paiement Stripe
+                if (selectedPayment.value === 'card' && stripe && cardElement) {
+                    const { paymentMethod, error } = await stripe.createPaymentMethod({
+                        type: 'card',
+                        card: cardElement
+                    });
+                    
+                    if (error) {
+                        const cardErrors = document.getElementById('card-errors');
+                        if (cardErrors) {
+                            cardErrors.textContent = error.message;
+                        }
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
+                        return;
+                    }
+                    
+                    document.getElementById('payment_method_id').value = paymentMethod.id;
+                }
+                
+                // Soumettre le formulaire
+                form.submit();
+                
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
             }
-            
-            // Soumettre le formulaire
-            form.submit();
-            
-        } catch (error) {
-            console.error('Erreur:', error);
-            alert('Une erreur est survenue. Veuillez réessayer.');
-            submitButton.disabled = false;
-            submitButton.innerHTML = '<i class="fas fa-lock me-2"></i>Passer la commande';
-        }
-    });
+        });
+    }
     
     // Initialiser les sélections par défaut
     const firstShipping = document.querySelector('input[name="shipping_option"]:checked');
     if (firstShipping) {
-        firstShipping.closest('.address-card').classList.add('selected');
+        const card = firstShipping.closest('.address-card');
+        if (card) card.classList.add('selected');
     }
     
     const firstPayment = document.querySelector('input[name="payment_method"]:checked');
     if (firstPayment) {
-        firstPayment.closest('.payment-method').classList.add('selected');
+        const method = firstPayment.closest('.payment-method');
+        if (method) method.classList.add('selected');
     }
 });
 </script>

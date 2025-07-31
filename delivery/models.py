@@ -23,7 +23,7 @@ class Delivery(models.Model):
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True, 
-        related_name='delivery_assignments'  # Correction du related_name
+        related_name='old_delivery_assignments'  # Changé pour éviter conflit
     )
     status = models.CharField(max_length=20, choices=[
         ('PENDING', 'Pending'),

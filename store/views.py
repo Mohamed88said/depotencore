@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
 import json
+from django.db import models
 import stripe
 import paypalrestsdk
 import requests
@@ -25,7 +26,8 @@ from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption, Discount,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
     SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryProfile, DeliveryRating,
-    DeliveryAssignment
+    Conversation, Message, SellerRating, Subscription, Discount,
+    QRDeliveryCode, DeliveryAssignment, DeliveryProfile
 )
 from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm, CheckoutForm
 from marketing.models import PromoCode, LoyaltyPoint
@@ -34,6 +36,8 @@ from admin_panel.models import Report
 
 # === Vues de géolocalisation ===
 @login_required
+User = get_user_model()
+
 def geocode(request):
     """Géocodage inverse pour obtenir une adresse à partir de coordonnées"""
     if request.method == 'POST':

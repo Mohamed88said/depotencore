@@ -178,11 +178,11 @@
         margin-top: 0.5rem;
     }
     
-    .hidden {
+    .d-none {
         display: none !important;
     }
     
-    .show {
+    .d-block {
         display: block !important;
     }
     
@@ -244,7 +244,7 @@
                             </div>
                             
                             <!-- Adresses existantes -->
-                            <div id="existingAddressSection" class="{% if not addresses %}hidden{% endif %}">
+                            <div id="existingAddressSection" class="{% if not addresses %}d-none{% endif %}">
                                 {% if addresses %}
                                     {% for address in addresses %}
                                     <div class="address-card" onclick="selectAddress(this, {{ address.id }})">
@@ -271,7 +271,7 @@
                             </div>
                             
                             <!-- Formulaire nouvelle adresse -->
-                            <div id="newAddressSection" class="{% if addresses %}hidden{% endif %}">
+                            <div id="newAddressSection" class="{% if addresses %}d-none{% endif %}">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label for="full_name" class="form-label">Nom complet *</label>
@@ -400,7 +400,7 @@
                                         <i class="fab fa-paypal me-2"></i>PayPal
                                     </label>
                                 </div>
-                                <div class="mt-3 hidden" id="paypalPaymentFields">
+                                <div class="mt-3 d-none" id="paypalPaymentFields">
                                     <div id="paypal-button-container"></div>
                                     <div id="paypal-errors" class="error-message"></div>
                                 </div>
@@ -506,9 +506,12 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Configuration des icônes Leaflet
-    L.Icon.Default.prototype.options.iconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
-    L.Icon.Default.prototype.options.iconRetinaUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png';
-    L.Icon.Default.prototype.options.shadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+    });
     
     // Initialiser la carte Leaflet
     const map = L.map('map').setView([9.5092, -13.7122], 10);
@@ -626,13 +629,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function toggleAddressMode() {
         if (existingAddressRadio && existingAddressRadio.checked) {
-            existingAddressSection.classList.remove('hidden');
-            newAddressSection.classList.add('hidden');
+            existingAddressSection.classList.remove('d-none');
+            newAddressSection.classList.add('d-none');
             setRequiredFields(newAddressSection, false);
             setRequiredFields(existingAddressSection, true);
         } else if (newAddressRadio && newAddressRadio.checked) {
-            existingAddressSection.classList.add('hidden');
-            newAddressSection.classList.remove('hidden');
+            existingAddressSection.classList.add('d-none');
+            newAddressSection.classList.remove('d-none');
             setRequiredFields(existingAddressSection, false);
             setRequiredFields(newAddressSection, true);
         }
@@ -702,13 +705,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const cardFields = document.getElementById('cardPaymentFields');
         const paypalFields = document.getElementById('paypalPaymentFields');
         
-        if (cardFields) cardFields.classList.add('hidden');
-        if (paypalFields) paypalFields.classList.add('hidden');
+        if (cardFields) cardFields.classList.add('d-none');
+        if (paypalFields) paypalFields.classList.add('d-none');
         
         if (paymentMethod === 'card' && cardFields) {
-            cardFields.classList.remove('hidden');
+            cardFields.classList.remove('d-none');
         } else if (paymentMethod === 'paypal' && paypalFields) {
-            paypalFields.classList.remove('hidden');
+            paypalFields.classList.remove('d-none');
             initPayPal();
         }
     };

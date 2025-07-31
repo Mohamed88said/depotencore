@@ -58,4 +58,34 @@ urlpatterns = [
     
     # Utilitaires
     path('search/autocomplete/', views.autocomplete_search, name='autocomplete_search'),
+    
+    # Géolocalisation
+    path('geocode/', views.geocode, name='geocode'),
+    
+    # Vendeur - commandes
+    path('seller/orders/', views.seller_order_list, name='seller_order_list'),
+    path('orders/<int:order_id>/update-status/', views.update_order_status, name='update_order_status'),
+    
+    # Marquer comme vendu
+    path('products/<int:product_id>/mark-sold/', views.mark_as_sold, name='mark_as_sold'),
+    
+    # Réductions
+    path('products/<int:product_id>/apply-discount/', views.apply_discount_for_product, name='apply_discount_for_product'),
+    path('apply-discount-multiple/', views.apply_discount_multiple, name='apply_discount_multiple'),
+    
+    # Messages/Chat
+    path('messages/', views.messages_view, name='messages'),
+    path('message-seller/<int:product_id>/', views.message_seller, name='message_seller'),
+    
+    # Avis
+    path('reviews/<int:review_id>/reply/', views.reply_to_review, name='reply_to_review'),
+    
+    # Répondre aux demandes de produits
+    path('requests/<int:request_id>/respond/', views.respond_product_request, name='respond_product_request'),
+    
+    # Noter un vendeur
+    path('orders/<int:order_id>/rate-seller/', views.rate_seller, name='rate_seller'),
+    
+    # Profil vendeur (modification)
+    path('seller-profile/', views.seller_profile, name='seller_profile'),
 ]

@@ -1,11 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, Http404, HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.db.models import Q, Avg, Count, Sum
 from django.views.generic import CreateView, UpdateView, DeleteView, View
+from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
@@ -984,17 +987,9 @@ def cancel_delivery_assignment(request, order_id):
             related_object_id=assignment.id
         )
     
-    # Supprimer l'assignation
-    assignment.delete()
-    
-    # Remettre la commande en attente
     order.status = 'pending'
     order.save()
     
-    messages.success(request, f"Assignation annulée pour la commande #{order.id}.")
-    return redirect('store:vendor_pending_orders')
-
-# === Vues principales ===
 def home(request):
     """Page d'accueil"""
     featured_products = Product.objects.filter(is_sold=False, sold_out=False, stock__gt=0)[:8]

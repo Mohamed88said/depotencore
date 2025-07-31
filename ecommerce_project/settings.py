@@ -116,6 +116,41 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
     SESSION_COOKIE_HTTPONLY = True
+else:
+    # Configuration pour développement
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_HTTPONLY = True
+
+# Configuration des en-têtes de sécurité
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Configuration CSP pour remplacer X-Frame-Options
+SECURE_CONTENT_SECURITY_POLICY = {
+    'frame-ancestors': ["'self'"],
+    'default-src': ["'self'"],
+    'script-src': ["'self'", "'unsafe-inline'", "https://js.stripe.com", "https://www.paypal.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
+    'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
+    'font-src': ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+    'img-src': ["'self'", "data:", "https:", "http:"],
+    'connect-src': ["'self'", "https://api.stripe.com", "https://www.paypal.com", "wss:", "ws:"],
+}
+
+# Configuration WhiteNoise pour ajouter charset=utf-8 aux fichiers JavaScript
+WHITENOISE_MIMETYPES = {
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.eot': 'application/vnd.ms-fontobject',
+}
+
+# Configuration des en-têtes de cache
+WHITENOISE_MAX_AGE = 31536000  # 1 an pour les fichiers statiques
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

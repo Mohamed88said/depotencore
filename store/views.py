@@ -20,7 +20,7 @@ from asgiref.sync import async_to_sync
 from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
-    SellerRating, SellerProfile, Subscription, DeliveryProfile, DeliveryRating
+    SellerRating, SellerProfile, Subscription
 )
 from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm, CheckoutForm
 from marketing.models import PromoCode, LoyaltyPoint
@@ -1209,3 +1209,200 @@ def create_subscription(request):
         return redirect('store:subscription_plans')
     
     return redirect('store:subscription_plans')
+
+# === Vues pour les livreurs ===
+@login_required
+def delivery_dashboard(request):
+    """Tableau de bord pour les livreurs"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    # Créer le profil livreur s'il n'existe pas
+    delivery_profile, created = DeliveryProfile.objects.get_or_create(user=request.user)
+    
+    # Statistiques du livreur
+    today = timezone.now().date()
+    total_deliveries = Order.objects.filter(delivery_person=request.user, status='delivered').count()
+    today_deliveries = Order.objects.filter(
+        delivery_person=request.user, 
+        delivery_completed_at__date=today
+    ).count()
+    pending_deliveries = Order.objects.filter(
+        delivery_person=request.user, 
+        status__in=['out_for_delivery']
+    ).count()
+    available_orders = Order.objects.filter(
+        status='shipped',
+        delivery_person__isnull=True
+    ).count()
+    
+    context = {
+        'delivery_profile': delivery_profile,
+        'total_deliveries': total_deliveries,
+        'today_deliveries': today_deliveries,
+        'pending_deliveries': pending_deliveries,
+        'available_orders': available_orders,
+    }
+    
+    return render(request, 'store/delivery_dashboard.html', context)
+
+@login_required
+def delivery_orders(request):
+    """Liste des commandes pour les livreurs"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    # Commandes assignées au livreur
+    assigned_orders = Order.objects.filter(delivery_person=request.user).order_by('-created_at')
+    
+    # Commandes disponibles (non assignées)
+    available_orders = Order.objects.filter(
+        status='shipped',
+        delivery_person__isnull=True
+    ).order_by('-created_at')
+    
+    context = {
+        'assigned_orders': assigned_orders,
+        'available_orders': available_orders,
+    }
+    
+    return render(request, 'store/delivery_orders.html', context)
+
+@login_required
+def accept_delivery(request, order_id):
+    """Accepter une livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id, status='shipped', delivery_person__isnull=True)
+    
+    if request.method == 'POST':
+        order.delivery_person = request.user
+        order.delivery_assigned_at = timezone.now()
+        order.save()
+        
+        # Notifier le client
+        Notification.objects.create(
+            user=order.user,
+            notification_type='delivery_assigned',
+            message=f"Un livreur a été assigné à votre commande #{order.id}",
+            related_object_id=order.id
+        )
+        
+        messages.success(request, f"Livraison #{order.id} acceptée avec succès.")
+        return redirect('store:delivery_orders')
+    
+    return render(request, 'store/accept_delivery.html', {'order': order})
+
+@login_required
+def start_delivery(request, order_id):
+    """Démarrer une livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id, delivery_person=request.user)
+    
+    if request.method == 'POST':
+        order.status = 'out_for_delivery'
+        order.delivery_started_at = timezone.now()
+        order.save()
+        
+        # Notifier le client
+        Notification.objects.create(
+            user=order.user,
+            notification_type='delivery_started',
+            message=f"Votre commande #{order.id} est en cours de livraison",
+            related_object_id=order.id
+        )
+        
+        messages.success(request, f"Livraison #{order.id} démarrée.")
+        return redirect('store:delivery_orders')
+    
+    return render(request, 'store/start_delivery.html', {'order': order})
+
+@login_required
+def complete_delivery(request, order_id):
+    """Terminer une livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id, delivery_person=request.user, status='out_for_delivery')
+    
+    if request.method == 'POST':
+        order.status = 'delivered'
+        order.delivery_completed_at = timezone.now()
+        order.save()
+        
+        # Mettre à jour les statistiques du livreur
+        delivery_profile = request.user.delivery_profile
+        delivery_profile.total_deliveries += 1
+        delivery_profile.save()
+        
+        # Notifier le client
+        Notification.objects.create(
+            user=order.user,
+            notification_type='delivery_completed',
+            message=f"Votre commande #{order.id} a été livrée avec succès",
+            related_object_id=order.id
+        )
+        
+        messages.success(request, f"Livraison #{order.id} terminée avec succès.")
+        return redirect('store:delivery_orders')
+    
+    return render(request, 'store/complete_delivery.html', {'order': order})
+
+@login_required
+def update_delivery_location(request):
+    """Mettre à jour la position du livreur (AJAX)"""
+    if request.user.user_type != 'delivery':
+        return JsonResponse({'success': False, 'error': 'Accès non autorisé'})
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            if latitude and longitude:
+                delivery_profile = request.user.delivery_profile
+                delivery_profile.update_location(latitude, longitude)
+                
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Coordonnées manquantes'})
+                
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
+@login_required
+def delivery_profile(request):
+    """Profil du livreur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    delivery_profile, created = DeliveryProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        delivery_profile.phone_number = request.POST.get('phone_number', '')
+        delivery_profile.vehicle_type = request.POST.get('vehicle_type', '')
+        delivery_profile.license_number = request.POST.get('license_number', '')
+        delivery_profile.is_available = request.POST.get('is_available') == 'on'
+        delivery_profile.save()
+        
+        messages.success(request, "Profil mis à jour avec succès.")
+        return redirect('store:delivery_profile')
+    
+    context = {
+        'delivery_profile': delivery_profile,
+        'ratings': DeliveryRating.objects.filter(delivery_person=request.user).order_by('-created_at')
+    }
+    
+    return render(request, 'store/delivery_profile.html', context)

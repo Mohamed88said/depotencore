@@ -47,13 +47,8 @@
 .thumbnail.active {
     border-color: var(--primary);
 }
-    will-change: transform, opacity;
 
 /* Animation des notifications */
-.animate-dropdown.animation-complete {
-    will-change: auto;
-}
-
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -73,20 +68,6 @@
 .pulse:not(.animating) {
     will-change: auto;
 }
-/* Optimisation des animations pour les performances */
-.notification-item {
-    animation: fadeIn 0.3s ease-out;
-    will-change: transform, opacity;
-    will-change: transform, opacity;
-}
-
-.notification-item:not(.animating) {
-    will-change: auto;
-}
-
-.notification-item {
-    animation: fadeIn 0.3s ease-out;
-}
 
 /* Styles des cartes produits */
 .product-card {
@@ -95,8 +76,6 @@
     overflow: hidden;
     box-shadow: var(--shadow-sm);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    will-change: transform;
-    will-change: transform;
 }
 
 .product-card:hover {
@@ -104,13 +83,6 @@
     box-shadow: var(--shadow-md);
 }
 
-.product-card:not(:hover) {
-    will-change: auto;
-}
-
-.product-card:not(:hover) {
-    will-change: auto;
-}
 
 .product-img-container {
     width: 100%;
@@ -124,21 +96,12 @@
     height: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
-    will-change: transform;
-    will-change: transform;
 }
 
 .product-card:hover .product-img {
     transform: scale3d(1.05, 1.05, 1); /* Utiliser scale3d pour GPU */
 }
 
-.product-card:not(:hover) .product-img {
-    will-change: auto;
-}
-
-.product-card:not(:hover) .product-img {
-    will-change: auto;
-}
 
 .discount-badge {
     position: absolute;
@@ -270,6 +233,5 @@
         font-size: 0.85rem;
     }
 }
-
 
 

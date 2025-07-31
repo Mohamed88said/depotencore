@@ -204,8 +204,3 @@ function getCookie(name) {
             }
         }
     }
-    will-change: transform, opacity; /* Optimisation GPU */
-}
-
-.notification-item:not(.animating) {
-}

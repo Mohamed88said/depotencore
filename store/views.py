@@ -17,6 +17,8 @@ from django.db import models
 import stripe
 import paypalrestsdk
 import requests
+import stripe
+from django.conf import settings
 import qrcode
 import base64
 
@@ -43,6 +45,8 @@ from admin_panel.models import Report
 
 User = get_user_model()
 
+# Configuration Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY if hasattr(settings, 'STRIPE_SECRET_KEY') else None
 def geocode(request):
     """Géocodage inverse pour obtenir une adresse à partir de coordonnées"""
     if request.method == 'POST':

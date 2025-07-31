@@ -204,3 +204,4 @@ function getCookie(name) {
             }
         }
     }
+}

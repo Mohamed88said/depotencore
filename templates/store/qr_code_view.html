@@ -231,19 +231,14 @@
         <h4 class="mb-3">Choisissez votre mode de livraison</h4>
         
         <div class="d-flex justify-content-center flex-wrap">
-            <a href="#" class="btn btn-primary btn-action">
+            <a href="{% url 'store:assign_delivery_choice' order.id %}" class="btn btn-primary btn-action">
                 <i class="fas fa-user me-2"></i>
-                Je livre moi-même
+                Choisir mode de livraison
             </a>
             
-            <a href="#" class="btn btn-success btn-action">
-                <i class="fas fa-motorcycle me-2"></i>
-                Assigner un livreur
-            </a>
-            
-            <a href="{% url 'dashboard:orders' %}" class="btn btn-outline-secondary btn-action">
+            <a href="{% url 'store:order_detail' order.id %}" class="btn btn-outline-secondary btn-action">
                 <i class="fas fa-arrow-left me-2"></i>
-                Retour aux commandes
+                Voir la commande
             </a>
         </div>
     </div>

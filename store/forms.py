@@ -8,6 +8,120 @@ from .models import (
 from admin_panel.models import Report
 from captcha.fields import ReCaptchaField
 
+class DiscountForm(forms.Form):
+    """Formulaire pour appliquer une réduction"""
+    products = forms.ModelMultipleChoiceField(
+        queryset=Product.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Produits"
+    )
+    percentage = forms.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        min_value=0.01,
+        max_value=100,
+        label="Pourcentage de réduction (%)",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
+    )
+    start_date = forms.DateTimeField(
+        label="Date de début",
+        widget=forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'})
+    )
+    end_date = forms.DateTimeField(
+        label="Date de fin",
+        widget=forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'})
+    )
+    
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields['products'].queryset = Product.objects.filter(seller=user, is_sold=False)
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        
+        if start_date and end_date and start_date >= end_date:
+            raise ValidationError("La date de fin doit être postérieure à la date de début.")
+        
+        return cleaned_data
+
+class MessageForm(forms.Form):
+    """Formulaire pour envoyer un message"""
+    content = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'placeholder': 'Tapez votre message...'
+        }),
+        label="Message"
+    )
+
+class ReviewReplyForm(forms.Form):
+    """Formulaire pour répondre à un avis"""
+    reply = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Votre réponse...'
+        }),
+        label="Réponse"
+    )
+
+class ProductRequestResponseForm(forms.Form):
+    """Formulaire pour répondre à une demande de produit"""
+    response = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'placeholder': 'Votre réponse au client...'
+        }),
+        label="Réponse"
+    )
+    restock_quantity = forms.IntegerField(
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Quantité à ajouter au stock'
+        }),
+        label="Restockage (optionnel)"
+    )
+
+class SellerRatingForm(forms.Form):
+    """Formulaire pour noter un vendeur"""
+    rating = forms.ChoiceField(
+        choices=[(i, i) for i in range(1, 6)],
+        widget=forms.RadioSelect,
+        label="Note"
+    )
+    comment = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Commentaire (optionnel)'
+        }),
+        label="Commentaire"
+    )
+
+class SellerProfileForm(forms.ModelForm):
+    """Formulaire pour le profil vendeur"""
+    class Meta:
+        model = SellerProfile
+        fields = ['first_name', 'last_name', 'description', 'business_name', 'business_address', 'contact_phone', 'profile_picture']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'business_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'business_address': forms.TextInput(attrs={'class': 'form-control'}),
+            'contact_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'profile_picture': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
 class ProductForm(forms.ModelForm):
     category = forms.CharField(max_length=100, required=False, label="Catégorie")
     captcha = ReCaptchaField()

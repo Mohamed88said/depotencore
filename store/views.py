@@ -13,6 +13,7 @@ from decimal import Decimal
 import json
 import stripe
 import paypalrestsdk
+import requests
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -32,6 +33,373 @@ paypalrestsdk.configure({
     "client_id": settings.PAYPAL_CLIENT_ID,
     "client_secret": settings.PAYPAL_CLIENT_SECRET
 })
+
+# === Vues de géolocalisation ===
+@login_required
+def geocode(request):
+    """Géocodage inverse pour obtenir une adresse à partir de coordonnées"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            if not latitude or not longitude:
+                return JsonResponse({'status': 'error', 'message': 'Coordonnées manquantes'})
+            
+            # Utiliser Nominatim pour le géocodage inverse
+            url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={latitude}&lon={longitude}&zoom=18&addressdetails=1"
+            
+            response = requests.get(url, headers={'User-Agent': 'LuxeShop/1.0'})
+            
+            if response.status_code == 200:
+                data = response.json()
+                address_data = data.get('address', {})
+                
+                formatted_address = {
+                    'street_address': address_data.get('road', ''),
+                    'city': address_data.get('city', address_data.get('town', address_data.get('village', ''))),
+                    'postal_code': address_data.get('postcode', ''),
+                    'country': address_data.get('country', 'Guinée')
+                }
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'address': formatted_address
+                })
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Service de géocodage indisponible'})
+                
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    
+    return JsonResponse({'status': 'error', 'message': 'Méthode non autorisée'})
+
+# === Vues vendeur ===
+@login_required
+def seller_order_list(request):
+    """Liste des commandes pour un vendeur"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    # Récupérer les commandes où l'utilisateur est vendeur
+    orders = Order.objects.filter(
+        items__product__seller=request.user
+    ).distinct().order_by('-created_at')
+    
+    # Ajouter les informations des articles pour chaque commande
+    orders_with_items = []
+    for order in orders:
+        items = order.items.filter(product__seller=request.user)
+        total = sum(item.quantity * item.price for item in items)
+        orders_with_items.append({
+            'order': order,
+            'items': items,
+            'total': total
+        })
+    
+    return render(request, 'store/seller_order_list.html', {
+        'orders': orders_with_items
+    })
+
+@login_required
+def update_order_status(request, order_id):
+    """Mettre à jour le statut d'une commande"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id, items__product__seller=request.user)
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in dict(Order.STATUS_CHOICES):
+            order.status = new_status
+            order.save()
+            
+            # Notifier l'acheteur
+            Notification.objects.create(
+                user=order.user,
+                notification_type='order_status_updated',
+                message=f"Le statut de votre commande #{order.id} a été mis à jour: {order.get_status_display()}",
+                related_object_id=order.id
+            )
+            
+            messages.success(request, f"Statut de la commande #{order.id} mis à jour.")
+        else:
+            messages.error(request, "Statut invalide.")
+    
+    return redirect('store:seller_order_list')
+
+@login_required
+def mark_as_sold(request, product_id):
+    """Marquer un produit comme vendu"""
+    product = get_object_or_404(Product, id=product_id, seller=request.user)
+    
+    if request.method == 'POST':
+        product.is_sold = True
+        product.stock = 0
+        product.save()
+        messages.success(request, f"Le produit '{product.name}' a été marqué comme vendu.")
+        return redirect('store:product_detail', product_id=product.id)
+    
+    return render(request, 'store/confirm_sold.html', {'product': product})
+
+@login_required
+def apply_discount_for_product(request, product_id):
+    """Appliquer une réduction à un produit spécifique"""
+    product = get_object_or_404(Product, id=product_id, seller=request.user)
+    
+    if request.method == 'POST':
+        percentage = request.POST.get('percentage')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        
+        try:
+            percentage = Decimal(percentage)
+            if 0 < percentage <= 100:
+                Discount.objects.create(
+                    product=product,
+                    percentage=percentage,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_active=True
+                )
+                messages.success(request, f"Réduction de {percentage}% appliquée au produit.")
+            else:
+                messages.error(request, "Le pourcentage doit être entre 1 et 100.")
+        except (ValueError, TypeError):
+            messages.error(request, "Pourcentage invalide.")
+        
+        return redirect('store:product_detail', product_id=product.id)
+    
+    return render(request, 'store/apply_discount.html', {'product': product})
+
+@login_required
+def apply_discount_multiple(request):
+    """Appliquer une réduction à plusieurs produits"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    products = Product.objects.filter(seller=request.user, is_sold=False)
+    
+    if request.method == 'POST':
+        selected_products = request.POST.getlist('products')
+        percentage = request.POST.get('percentage')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        
+        try:
+            percentage = Decimal(percentage)
+            if 0 < percentage <= 100 and selected_products:
+                for product_id in selected_products:
+                    product = Product.objects.get(id=product_id, seller=request.user)
+                    Discount.objects.create(
+                        product=product,
+                        percentage=percentage,
+                        start_date=start_date,
+                        end_date=end_date,
+                        is_active=True
+                    )
+                messages.success(request, f"Réduction appliquée à {len(selected_products)} produit(s).")
+            else:
+                messages.error(request, "Données invalides.")
+        except (ValueError, TypeError, Product.DoesNotExist):
+            messages.error(request, "Erreur lors de l'application de la réduction.")
+        
+        return redirect('dashboard:products')
+    
+    return render(request, 'store/apply_discount.html', {'products': products})
+
+# === Vues de messagerie ===
+@login_required
+def messages_view(request):
+    """Afficher les conversations de l'utilisateur"""
+    conversations = Conversation.objects.filter(
+        Q(initiator=request.user) | Q(recipient=request.user)
+    ).order_by('-created_at')
+    
+    return render(request, 'store/messages.html', {
+        'conversations': conversations
+    })
+
+@login_required
+def message_seller(request, product_id):
+    """Envoyer un message au vendeur d'un produit"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    if request.user == product.seller:
+        messages.error(request, "Vous ne pouvez pas vous envoyer un message.")
+        return redirect('store:product_detail', product_id=product.id)
+    
+    # Créer ou récupérer la conversation
+    conversation, created = Conversation.objects.get_or_create(
+        initiator=request.user,
+        recipient=product.seller,
+        product=product
+    )
+    
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            Message.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                content=content
+            )
+            
+            # Notifier le vendeur
+            Notification.objects.create(
+                user=product.seller,
+                notification_type='new_message',
+                message=f"Nouveau message de {request.user.username} concernant {product.name}",
+                related_object_id=conversation.id
+            )
+            
+            messages.success(request, "Message envoyé avec succès.")
+            return redirect('chat:conversation', conversation_id=conversation.id)
+    
+    return render(request, 'store/messages.html', {
+        'conversation': conversation,
+        'product': product
+    })
+
+# === Vues des avis ===
+@login_required
+def reply_to_review(request, review_id):
+    """Répondre à un avis"""
+    review = get_object_or_404(Review, id=review_id, product__seller=request.user)
+    
+    if request.method == 'POST':
+        reply = request.POST.get('reply')
+        if reply:
+            review.reply = reply
+            review.save()
+            
+            # Notifier l'auteur de l'avis
+            Notification.objects.create(
+                user=review.user,
+                notification_type='review_reply',
+                message=f"Le vendeur a répondu à votre avis sur {review.product.name}",
+                related_object_id=review.product.id
+            )
+            
+            messages.success(request, "Réponse ajoutée avec succès.")
+        else:
+            messages.error(request, "Veuillez saisir une réponse.")
+        
+        return redirect('store:product_detail', product_id=review.product.id)
+    
+    return render(request, 'store/reply_to_review.html', {'review': review})
+
+# === Vues des demandes de produits ===
+@login_required
+def respond_product_request(request, request_id):
+    """Répondre à une demande de produit"""
+    product_request = get_object_or_404(ProductRequest, id=request_id, product__seller=request.user)
+    
+    if request.method == 'POST':
+        response = request.POST.get('response')
+        restock_quantity = request.POST.get('restock_quantity')
+        
+        if response:
+            # Envoyer la réponse par notification
+            Notification.objects.create(
+                user=product_request.user,
+                notification_type='product_request_response',
+                message=f"Réponse à votre demande pour {product_request.product.name}: {response}",
+                related_object_id=product_request.product.id
+            )
+            
+            # Restockage si spécifié
+            if restock_quantity:
+                try:
+                    quantity = int(restock_quantity)
+                    if quantity > 0:
+                        product_request.product.stock += quantity
+                        product_request.product.sold_out = False
+                        product_request.product.save()
+                        messages.success(request, f"Stock mis à jour (+{quantity} unités).")
+                except ValueError:
+                    messages.error(request, "Quantité invalide.")
+            
+            product_request.is_notified = True
+            product_request.save()
+            
+            messages.success(request, "Réponse envoyée avec succès.")
+        else:
+            messages.error(request, "Veuillez saisir une réponse.")
+        
+        return redirect('dashboard:requests')
+    
+    return render(request, 'store/respond_product_request.html', {
+        'product_request': product_request
+    })
+
+# === Vues de notation des vendeurs ===
+@login_required
+def rate_seller(request, order_id):
+    """Noter les vendeurs d'une commande"""
+    order = get_object_or_404(Order, id=order_id, user=request.user, status='delivered')
+    
+    # Récupérer tous les vendeurs de cette commande
+    sellers = set(item.product.seller for item in order.items.all() if item.product.seller)
+    
+    if request.method == 'POST':
+        for seller in sellers:
+            rating_value = request.POST.get(f'rating_{seller.id}')
+            comment = request.POST.get(f'comment_{seller.id}', '')
+            
+            if rating_value:
+                SellerRating.objects.get_or_create(
+                    seller=seller,
+                    rater=request.user,
+                    order=order,
+                    defaults={
+                        'rating': int(rating_value),
+                        'comment': comment
+                    }
+                )
+        
+        messages.success(request, "Notations enregistrées avec succès.")
+        return redirect('store:order_history')
+    
+    return render(request, 'store/rate_seller.html', {
+        'order': order,
+        'sellers': sellers
+    })
+
+# === Vue profil vendeur ===
+@login_required
+def seller_profile(request):
+    """Modifier le profil vendeur"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    profile, created = SellerProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        # Mise à jour des champs du profil
+        profile.first_name = request.POST.get('first_name', '')
+        profile.last_name = request.POST.get('last_name', '')
+        profile.description = request.POST.get('description', '')
+        profile.business_name = request.POST.get('business_name', '')
+        profile.business_address = request.POST.get('business_address', '')
+        profile.contact_phone = request.POST.get('contact_phone', '')
+        
+        if 'profile_picture' in request.FILES:
+            profile.profile_picture = request.FILES['profile_picture']
+        
+        profile.save()
+        messages.success(request, "Profil mis à jour avec succès.")
+        return redirect('store:seller_profile')
+    
+    return render(request, 'accounts/seller_profile.html', {
+        'form': profile  # Passer l'objet profile comme form pour compatibilité template
+    })
 
 # === Vues principales ===
 def home(request):

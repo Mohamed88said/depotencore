@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, Http404, HttpResponseForbidden
 from django.core.paginator import Paginator
@@ -20,7 +21,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from .models import (
-    Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption,
+    Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption, Discount,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
     SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryProfile, DeliveryRating
 )

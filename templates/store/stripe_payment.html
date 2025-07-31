@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Paiement par carte - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://js.stripe.com/v3/"></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stripe-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .stripe-header {
+        background: linear-gradient(135deg, #635bff 0%, #4f46e5 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .stripe-body {
+        background: white;
+        padding: 2rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    #card-element {
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: white;
+        margin: 1rem 0;
+    }
+    
+    #card-errors {
+        color: #fa755a;
+        margin-top: 0.5rem;
+    }
+    
+    .amount-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #635bff;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .btn-stripe {
+        background: linear-gradient(135deg, #635bff 0%, #4f46e5 100%);
+        border: none;
+        color: white;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .btn-stripe:hover {
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+        color: white;
+    }
+    
+    .btn-stripe:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .loading-spinner {
+        display: none;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 stripe-container">
+    <div class="stripe-header">
+        <h1 class="mb-3">
+            <i class="fas fa-credit-card me-2"></i>
+            Paiement sécurisé
+        </h1>
+        <p class="mb-0">Commande #{{ order.id }}</p>
+    </div>
+    
+    <div class="stripe-body">
+        <!-- Montant -->
+        <div class="text-center mb-4">
+            <h4>Montant à payer</h4>
+            <div class="amount-display">{{ order.total|floatformat:2 }} €</div>
+        </div>
+        
+        <!-- Formulaire Stripe -->
+        <form id="payment-form">
+            <div class="mb-3">
+                <label for="card-element" class="form-label">
+                    Informations de carte
+                </label>
+                <div id="card-element">
+                    <!-- Stripe Elements injectera le formulaire de carte ici -->
+                </div>
+                <div id="card-errors" role="alert"></div>
+            </div>
+            
+            <button type="submit" id="submit-button" class="btn btn-stripe">
+                <span class="loading-spinner spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i class="fas fa-lock me-2"></i>
+                Payer {{ order.total|floatformat:2 }} € en sécurité
+            </button>
+        </form>
+        
+        <!-- Informations de sécurité -->
+        <div class="mt-4 p-3 bg-light rounded">
+            <h6 class="mb-2">
+                <i class="fas fa-shield-alt me-2"></i>
+                Paiement 100% sécurisé
+            </h6>
+            <ul class="mb-0 small">
+                <li>Chiffrement SSL 256 bits</li>
+                <li>Conforme aux normes PCI DSS</li>
+                <li>Aucune donnée de carte stockée</li>
+                <li>Protection contre la fraude</li>
+            </ul>
+        </div>
+        
+        <!-- Récapitulatif commande -->
+        <div class="mt-4 pt-3 border-top">
+            <h6>Articles commandés</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">{{ item.price|floatformat:2 }} €</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+        </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if stripe_public_key %}
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const elements = stripe.elements();
+    
+    // Créer l'élément carte
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                    color: '#aab7c4',
+                },
+            },
+            invalid: {
+                color: '#9e2146',
+            },
+        },
+    });
+    
+    cardElement.mount('#card-element');
+    
+    // Gérer les erreurs en temps réel
+    cardElement.on('change', function(event) {
+        const displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+        } else {
+            displayError.textContent = '';
+        }
+    });
+    
+    // Gérer la soumission du formulaire
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        submitButton.disabled = true;
+        document.querySelector('.loading-spinner').style.display = 'inline-block';
+        
+        const {token, error} = await stripe.createToken(cardElement);
+        
+        if (error) {
+            // Afficher l'erreur
+            const errorElement = document.getElementById('card-errors');
+            errorElement.textContent = error.message;
+            
+            submitButton.disabled = false;
+            document.querySelector('.loading-spinner').style.display = 'none';
+        } else {
+            // Confirmer le paiement
+            const {error: confirmError} = await stripe.confirmCardPayment('{{ client_secret }}', {
+                payment_method: {
+                    card: cardElement,
+                }
+            });
+            
+            if (confirmError) {
+                const errorElement = document.getElementById('card-errors');
+                errorElement.textContent = confirmError.message;
+                
+                submitButton.disabled = false;
+                document.querySelector('.loading-spinner').style.display = 'none';
+            } else {
+                // Paiement réussi - confirmer côté serveur
+                fetch('{% url "store:confirm_stripe_payment" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        payment_intent_id: '{{ client_secret }}'.split('_secret_')[0],
+                        qr_code: '{{ qr_code.code }}'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        alert('Erreur lors de la confirmation : ' + data.error);
+                        submitButton.disabled = false;
+                        document.querySelector('.loading-spinner').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Une erreur est survenue lors du paiement');
+                    submitButton.disabled = false;
+                    document.querySelector('.loading-spinner').style.display = 'none';
+                });
+            }
+        }
+    });
+    {% else %}
+    // Pas de clé Stripe configurée
+    document.getElementById('submit-button').addEventListener('click', function(e) {
+        e.preventDefault();
+        alert('Paiement par carte temporairement indisponible. Veuillez utiliser les espèces.');
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

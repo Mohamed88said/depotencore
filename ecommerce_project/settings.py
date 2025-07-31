@@ -159,6 +159,15 @@ PRODUCTS_PER_PAGE = 9
 RECAPTCHA_PUBLIC_KEY = '6Ld2ilErAAAAANKz1d0dytvMyM0SuTq_ir4tULYz'
 RECAPTCHA_PRIVATE_KEY = '6Ld2ilErAAAAAPE2ZJM_7n3CzI1gdFWqTRKtWKWU'
 
+# Configuration Stripe
+STRIPE_PUBLIC_KEY = 'pk_test_...'  # À remplacer par votre clé publique Stripe
+STRIPE_SECRET_KEY = 'sk_test_...'  # À remplacer par votre clé secrète Stripe
+
+# Configuration PayPal
+PAYPAL_CLIENT_ID = 'your_paypal_client_id'  # À remplacer par votre client ID PayPal
+PAYPAL_CLIENT_SECRET = 'your_paypal_client_secret'  # À remplacer par votre secret PayPal
+PAYPAL_MODE = 'sandbox'  # 'sandbox' pour test, 'live' pour production
+
 SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False

@@ -489,6 +489,238 @@ def scan_qr_payment(request, code):
         return render(request, 'store/qr_not_found.html')
 
 @login_required
+def process_qr_payment(request, code):
+    """Traite le paiement via QR Code après scan"""
+    try:
+        qr_code = QRDeliveryCode.objects.get(code=code)
+        order = qr_code.order
+        
+        # Vérifications de sécurité
+        if qr_code.is_expired:
+            return render(request, 'store/qr_expired.html', {'qr_code': qr_code})
+        
+        if qr_code.is_used:
+            return render(request, 'store/already_paid.html', {'order': order})
+        
+        if request.method == 'POST':
+            payment_method = request.POST.get('payment_method')
+            
+            if payment_method == 'cash':
+                # Paiement en espèces
+                customer_confirms = request.POST.get('customer_confirms') == 'true'
+                delivery_confirms = request.POST.get('delivery_confirms') == 'true'
+                
+                if customer_confirms and delivery_confirms:
+                    # Double confirmation pour paiement cash
+                    with transaction.atomic():
+                        order.status = 'delivered'
+                        order.save()
+                        qr_code.mark_as_used()
+                        
+                        # Notification vendeur
+                        Notification.objects.create(
+                            user=order.seller,
+                            message=f"Commande #{order.id} payée et livrée (espèces)",
+                            notification_type='order_delivered'
+                        )
+                        
+                        # Notification client
+                        Notification.objects.create(
+                            user=order.user,
+                            message=f"Votre commande #{order.id} a été livrée avec succès",
+                            notification_type='order_delivered'
+                        )
+                        
+                        # Mettre à jour l'assignation de livraison si elle existe
+                        if hasattr(order, 'delivery_assignment') and order.delivery_assignment:
+                            order.delivery_assignment.mark_delivered()
+                    
+                    return redirect('store:payment_success', order_id=order.id)
+                else:
+                    messages.error(request, "Les deux parties doivent confirmer le paiement en espèces.")
+            
+            elif payment_method == 'card':
+                # Paiement par carte via Stripe
+                try:
+                    if not stripe.api_key:
+                        messages.error(request, "Paiement par carte temporairement indisponible.")
+                        return render(request, 'store/qr_payment_process.html', {
+                            'qr_code': qr_code,
+                            'order': order,
+                            'delivery_info': _get_delivery_info(qr_code)
+                        })
+                    
+                    # Créer PaymentIntent Stripe
+                    intent = stripe.PaymentIntent.create(
+                        amount=int(order.total * 100),  # Montant en centimes
+                        currency='eur',
+                        metadata={
+                            'order_id': order.id,
+                            'qr_code': qr_code.code
+                        }
+                    )
+                    
+                    return render(request, 'store/stripe_payment.html', {
+                        'client_secret': intent.client_secret,
+                        'order': order,
+                        'qr_code': qr_code,
+                        'stripe_public_key': getattr(settings, 'STRIPE_PUBLIC_KEY', '')
+                    })
+                    
+                except stripe.error.StripeError as e:
+                    messages.error(request, f"Erreur de paiement : {str(e)}")
+            
+            elif payment_method == 'paypal':
+                # Redirection vers PayPal (à implémenter selon vos besoins)
+                messages.info(request, "Redirection vers PayPal...")
+                return render(request, 'store/paypal_payment.html', {
+                    'order': order,
+                    'qr_code': qr_code
+                })
+        
+        # GET request - Afficher la page de paiement
+        delivery_info = _get_delivery_info(qr_code)
+        
+        return render(request, 'store/qr_payment_process.html', {
+            'qr_code': qr_code,
+            'order': order,
+            'delivery_info': delivery_info,
+            'can_pay_cash': qr_code.preferred_payment_method == 'cash',
+            'can_pay_card': qr_code.preferred_payment_method in ['card', 'cash'],
+            'can_pay_paypal': qr_code.preferred_payment_method in ['paypal', 'cash']
+        })
+        
+    except QRDeliveryCode.DoesNotExist:
+        return render(request, 'store/qr_not_found.html')
+
+@require_POST
+@csrf_exempt
+def confirm_stripe_payment(request):
+    """Confirme le paiement Stripe et finalise la commande"""
+    try:
+        data = json.loads(request.body)
+        payment_intent_id = data.get('payment_intent_id')
+        qr_code_id = data.get('qr_code')
+        
+        if not payment_intent_id or not qr_code_id:
+            return JsonResponse({'success': False, 'error': 'Données manquantes'})
+        
+        # Vérifier le paiement Stripe
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        
+        if intent.status == 'succeeded':
+            qr_code = QRDeliveryCode.objects.get(code=qr_code_id)
+            order = qr_code.order
+            
+            with transaction.atomic():
+                order.status = 'delivered'
+                order.charge_id = payment_intent_id
+                order.save()
+                qr_code.mark_as_used()
+                
+                # Notifications
+                Notification.objects.create(
+                    user=order.seller,
+                    message=f"Commande #{order.id} payée par carte et livrée",
+                    notification_type='order_delivered'
+                )
+                
+                Notification.objects.create(
+                    user=order.user,
+                    message=f"Votre commande #{order.id} a été livrée avec succès",
+                    notification_type='order_delivered'
+                )
+                
+                # Mettre à jour l'assignation de livraison
+                if hasattr(order, 'delivery_assignment') and order.delivery_assignment:
+                    order.delivery_assignment.mark_delivered()
+            
+            return JsonResponse({
+                'success': True,
+                'redirect_url': reverse('store:payment_success', args=[order.id])
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Paiement non confirmé'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+def _get_delivery_info(qr_code):
+    """Extrait les informations de livraison du QR Code"""
+    return {
+        'mode': qr_code.get_delivery_mode_display(),
+        'address': qr_code.delivery_address,
+        'instructions': qr_code.special_instructions,
+        'payment_method': qr_code.get_preferred_payment_method_display(),
+        'commission_payer': qr_code.order.get_commission_payer_display()
+    }
+
+@login_required
+def delivery_confirmation(request, code):
+    """Page de confirmation pour le livreur après livraison"""
+    try:
+        qr_code = QRDeliveryCode.objects.get(code=code)
+        order = qr_code.order
+        
+        # Vérifier que l'utilisateur est le livreur assigné
+        if (hasattr(order, 'delivery_assignment') and 
+            order.delivery_assignment and 
+            order.delivery_assignment.delivery_person == request.user):
+            
+            if request.method == 'POST':
+                # Confirmer la livraison côté livreur
+                with transaction.atomic():
+                    if order.delivery_assignment:
+                        order.delivery_assignment.mark_delivered()
+                    
+                    # Notification vendeur
+                    Notification.objects.create(
+                        user=order.seller,
+                        message=f"Livraison confirmée par {request.user.username} pour commande #{order.id}",
+                        notification_type='delivery_confirmed'
+                    )
+                
+                messages.success(request, "Livraison confirmée avec succès !")
+                return redirect('store:delivery_marketplace')
+            
+            return render(request, 'store/delivery_confirmation.html', {
+                'qr_code': qr_code,
+                'order': order
+            })
+        else:
+            messages.error(request, "Vous n'êtes pas autorisé à confirmer cette livraison.")
+            return redirect('store:home')
+            
+    except QRDeliveryCode.DoesNotExist:
+        return render(request, 'store/qr_not_found.html')
+
+@login_required
+def payment_verification(request, order_id):
+    """Vérification du statut de paiement d'une commande"""
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Vérifier les permissions
+    if request.user not in [order.user, order.seller] and not request.user.is_staff:
+        return HttpResponseForbidden("Accès non autorisé")
+    
+    payment_status = {
+        'order_id': order.id,
+        'status': order.status,
+        'total': float(order.total),
+        'payment_method': order.payment_method,
+        'is_paid': order.status == 'delivered',
+        'qr_used': hasattr(order, 'qr_code') and order.qr_code.is_used if hasattr(order, 'qr_code') else False
+    }
+    
+    if request.headers.get('Accept') == 'application/json':
+        return JsonResponse(payment_status)
+    
+    return render(request, 'store/payment_verification.html', {
+        'order': order,
+        'payment_status': payment_status
+    })
+
+@login_required
 def vendor_pending_orders(request):
     """Liste des commandes en attente pour le vendeur"""
     if request.user.user_type != 'seller':
@@ -991,7 +1223,7 @@ def cancel_delivery_assignment(request, order_id):
             related_object_id=assignment.id
         )
     
-    
+
 User = get_user_model()
 
 def home(request):

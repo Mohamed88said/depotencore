@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Paiement - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .payment-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .payment-body {
+        background: white;
+        padding: 2rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .delivery-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .payment-method-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .payment-method-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+    
+    .payment-method-card.selected {
+        border-color: #3b82f6;
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+    
+    .payment-method-card.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .amount-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #10b981;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .security-info {
+        background: #e7f3ff;
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+    }
+    
+    .btn-pay {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .confirmation-section {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    .confirmation-checkbox {
+        transform: scale(1.2);
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 payment-container">
+    <div class="payment-header">
+        <h1 class="mb-3">
+            <i class="fas fa-qrcode me-2"></i>
+            Paiement de la commande
+        </h1>
+        <p class="mb-0">Commande #{{ order.id }}</p>
+    </div>
+    
+    <div class="payment-body">
+        <!-- Informations de livraison -->
+        <div class="delivery-info">
+            <h5 class="mb-3">
+                <i class="fas fa-info-circle me-2"></i>
+                Informations de livraison
+            </h5>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <strong>Mode :</strong><br>
+                    <span class="text-muted">{{ delivery_info.mode }}</span>
+                </div>
+                <div class="col-md-6">
+                    <strong>Adresse :</strong><br>
+                    <span class="text-muted">{{ delivery_info.address }}</span>
+                </div>
+                {% if delivery_info.instructions %}
+                <div class="col-12">
+                    <strong>Instructions :</strong><br>
+                    <span class="text-muted">{{ delivery_info.instructions }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Montant à payer -->
+        <div class="text-center">
+            <h4>Montant à payer</h4>
+            <div class="amount-display">{{ order.total|floatformat:2 }} €</div>
+        </div>
+        
+        <!-- Méthodes de paiement -->
+        <div class="mt-4">
+            <h5 class="mb-3">Choisissez votre méthode de paiement</h5>
+            
+            <form method="post" id="paymentForm">
+                {% csrf_token %}
+                
+                <!-- Paiement en espèces -->
+                {% if can_pay_cash %}
+                <div class="payment-method-card" onclick="selectPaymentMethod('cash')" id="cash-method">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-money-bill-wave fa-2x text-success"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Paiement en espèces</h6>
+                            <p class="text-muted mb-0">Payez directement au livreur en liquide</p>
+                            {% if qr_code.preferred_payment_method == 'cash' %}
+                                <small class="text-success"><i class="fas fa-check me-1"></i>Méthode préférée</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <input type="radio" name="payment_method" value="cash" class="d-none" id="payment_cash">
+                </div>
+                {% endif %}
+                
+                <!-- Paiement par carte -->
+                {% if can_pay_card %}
+                <div class="payment-method-card {% if not can_pay_cash %}{% endif %}" onclick="selectPaymentMethod('card')" id="card-method">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-credit-card fa-2x text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">Carte bancaire</h6>
+                            <p class="text-muted mb-0">Paiement sécurisé par carte</p>
+                            {% if qr_code.preferred_payment_method == 'card' %}
+                                <small class="text-success"><i class="fas fa-check me-1"></i>Méthode préférée</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <input type="radio" name="payment_method" value="card" class="d-none" id="payment_card">
+                </div>
+                {% endif %}
+                
+                <!-- Paiement PayPal -->
+                {% if can_pay_paypal %}
+                <div class="payment-method-card" onclick="selectPaymentMethod('paypal')" id="paypal-method">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fab fa-paypal fa-2x text-info"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">PayPal</h6>
+                            <p class="text-muted mb-0">Paiement via votre compte PayPal</p>
+                            {% if qr_code.preferred_payment_method == 'paypal' %}
+                                <small class="text-success"><i class="fas fa-check me-1"></i>Méthode préférée</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <input type="radio" name="payment_method" value="paypal" class="d-none" id="payment_paypal">
+                </div>
+                {% endif %}
+                
+                <!-- Section confirmation espèces -->
+                <div id="cash-confirmation" style="display: none;">
+                    <div class="confirmation-section">
+                        <h6 class="mb-3">
+                            <i class="fas fa-handshake me-2"></i>
+                            Confirmation du paiement en espèces
+                        </h6>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input confirmation-checkbox" type="checkbox" 
+                                       id="customer_confirms" name="customer_confirms" value="true">
+                                <label class="form-check-label fw-bold" for="customer_confirms">
+                                    <i class="fas fa-user me-1"></i>
+                                    Je confirme avoir remis {{ order.total|floatformat:2 }} € au livreur
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input confirmation-checkbox" type="checkbox" 
+                                       id="delivery_confirms" name="delivery_confirms" value="true">
+                                <label class="form-check-label fw-bold" for="delivery_confirms">
+                                    <i class="fas fa-motorcycle me-1"></i>
+                                    Le livreur confirme avoir reçu {{ order.total|floatformat:2 }} €
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <small>
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Les deux parties doivent confirmer pour finaliser le paiement
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Boutons de paiement -->
+                <div class="mt-4">
+                    <!-- Paiement espèces -->
+                    <div id="cash-payment" style="display: none;">
+                        <button type="submit" class="btn btn-success btn-pay" id="cashPayBtn" disabled>
+                            <i class="fas fa-money-bill-wave me-2"></i>
+                            Confirmer le paiement en espèces
+                        </button>
+                    </div>
+                    
+                    <!-- Paiement carte -->
+                    <div id="card-payment" style="display: none;">
+                        <button type="submit" class="btn btn-primary btn-pay">
+                            <i class="fas fa-credit-card me-2"></i>
+                            Payer par carte bancaire
+                        </button>
+                    </div>
+                    
+                    <!-- Paiement PayPal -->
+                    <div id="paypal-payment" style="display: none;">
+                        <button type="submit" class="btn btn-info btn-pay">
+                            <i class="fab fa-paypal me-2"></i>
+                            Payer avec PayPal
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Informations de sécurité -->
+        <div class="security-info">
+            <h6 class="mb-2">
+                <i class="fas fa-shield-alt me-2"></i>
+                Paiement sécurisé
+            </h6>
+            <ul class="mb-0 small">
+                <li>Vos données de paiement sont protégées</li>
+                <li>Paiement uniquement après réception des produits</li>
+                <li>Possibilité de vérifier les articles avant paiement</li>
+                <li>Support client disponible en cas de problème</li>
+            </ul>
+        </div>
+        
+        <!-- Informations commande -->
+        <div class="mt-4 pt-3 border-top">
+            <h6>Récapitulatif de la commande</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">{{ item.price|floatformat:2 }} €</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="border-top">
+                            <td colspan="2"><strong>Total</strong></td>
+                            <td class="text-end"><strong>{{ order.total|floatformat:2 }} €</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedPaymentMethod = null;
+
+function selectPaymentMethod(method) {
+    selectedPaymentMethod = method;
+    
+    // Mettre à jour l'apparence des cartes
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.getElementById(method + '-method').classList.add('selected');
+    document.getElementById('payment_' + method).checked = true;
+    
+    // Afficher/masquer les sections appropriées
+    document.querySelectorAll('[id$="-payment"]').forEach(div => {
+        div.style.display = 'none';
+    });
+    document.getElementById(method + '-payment').style.display = 'block';
+    
+    // Gestion spéciale pour les espèces
+    if (method === 'cash') {
+        document.getElementById('cash-confirmation').style.display = 'block';
+        updateCashButton();
+    } else {
+        document.getElementById('cash-confirmation').style.display = 'none';
+    }
+}
+
+function updateCashButton() {
+    const customerCheck = document.getElementById('customer_confirms');
+    const deliveryCheck = document.getElementById('delivery_confirms');
+    const cashBtn = document.getElementById('cashPayBtn');
+    
+    if (customerCheck && deliveryCheck && cashBtn) {
+        cashBtn.disabled = !(customerCheck.checked && deliveryCheck.checked);
+    }
+}
+
+// Écouter les changements des checkboxes
+document.addEventListener('DOMContentLoaded', function() {
+    const customerCheck = document.getElementById('customer_confirms');
+    const deliveryCheck = document.getElementById('delivery_confirms');
+    
+    if (customerCheck) customerCheck.addEventListener('change', updateCashButton);
+    if (deliveryCheck) deliveryCheck.addEventListener('change', updateCashButton);
+    
+    // Sélectionner la méthode préférée par défaut
+    {% if qr_code.preferred_payment_method %}
+        selectPaymentMethod('{{ qr_code.preferred_payment_method }}');
+    {% endif %}
+});
+</script>
+{% endblock %}

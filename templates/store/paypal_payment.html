@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Paiement PayPal - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .paypal-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .paypal-header {
+        background: linear-gradient(135deg, #0070ba 0%, #003087 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .paypal-body {
+        background: white;
+        padding: 2rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .amount-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #0070ba;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .btn-paypal {
+        background: linear-gradient(135deg, #0070ba 0%, #003087 100%);
+        border: none;
+        color: white;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .btn-paypal:hover {
+        background: linear-gradient(135deg, #003087 0%, #001f5c 100%);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 paypal-container">
+    <div class="paypal-header">
+        <h1 class="mb-3">
+            <i class="fab fa-paypal me-2"></i>
+            Paiement PayPal
+        </h1>
+        <p class="mb-0">Commande #{{ order.id }}</p>
+    </div>
+    
+    <div class="paypal-body">
+        <!-- Montant -->
+        <div class="text-center mb-4">
+            <h4>Montant à payer</h4>
+            <div class="amount-display">{{ order.total|floatformat:2 }} €</div>
+        </div>
+        
+        <!-- Bouton PayPal -->
+        <div id="paypal-button-container"></div>
+        
+        <!-- Informations -->
+        <div class="mt-4 p-3 bg-light rounded">
+            <h6 class="mb-2">
+                <i class="fas fa-info-circle me-2"></i>
+                Paiement PayPal
+            </h6>
+            <ul class="mb-0 small">
+                <li>Connectez-vous à votre compte PayPal</li>
+                <li>Confirmez le paiement de {{ order.total|floatformat:2 }} €</li>
+                <li>Retour automatique après paiement</li>
+                <li>Protection acheteur PayPal incluse</li>
+            </ul>
+        </div>
+        
+        <!-- Récapitulatif -->
+        <div class="mt-4 pt-3 border-top">
+            <h6>Articles commandés</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">{{ item.price|floatformat:2 }} €</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{% url 'store:process_qr_payment' qr_code.code %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour aux options de paiement
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=EUR"></script>
+<script>
+// Configuration PayPal
+paypal.Buttons({
+    createOrder: function(data, actions) {
+        return actions.order.create({
+            purchase_units: [{
+                amount: {
+                    value: '{{ order.total|floatformat:2 }}'
+                },
+                description: 'Commande #{{ order.id }}'
+            }]
+        });
+    },
+    onApprove: function(data, actions) {
+        return actions.order.capture().then(function(details) {
+            // Paiement réussi
+            fetch('{% url "store:confirm_paypal_payment" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    order_id: data.orderID,
+                    qr_code: '{{ qr_code.code }}',
+                    payer_id: details.payer.payer_id
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Erreur lors de la confirmation PayPal');
+                }
+            });
+        });
+    },
+    onError: function(err) {
+        console.error('Erreur PayPal:', err);
+        alert('Une erreur est survenue avec PayPal');
+    }
+}).render('#paypal-button-container');
+</script>
+{% endblock %}

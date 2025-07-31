@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Vérification paiement - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .verification-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .status-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-header {
+        padding: 2rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .status-paid {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    
+    .status-pending {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+    
+    .status-failed {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .status-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .payment-details {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .refresh-btn {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 verification-container">
+    <div class="status-card">
+        <div class="status-header {% if payment_status.is_paid %}status-paid{% elif order.status == 'cancelled' %}status-failed{% else %}status-pending{% endif %}">
+            <div class="status-icon">
+                {% if payment_status.is_paid %}
+                    <i class="fas fa-check-circle"></i>
+                {% elif order.status == 'cancelled' %}
+                    <i class="fas fa-times-circle"></i>
+                {% else %}
+                    <i class="fas fa-clock"></i>
+                {% endif %}
+            </div>
+            <h2 class="mb-2">
+                {% if payment_status.is_paid %}
+                    Paiement confirmé
+                {% elif order.status == 'cancelled' %}
+                    Commande annulée
+                {% else %}
+                    En attente de paiement
+                {% endif %}
+            </h2>
+            <p class="mb-0">Commande #{{ order.id }}</p>
+        </div>
+        
+        <div class="card-body p-4">
+            <!-- Détails du paiement -->
+            <div class="payment-details">
+                <h6 class="mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Détails du paiement
+                </h6>
+                
+                <div class="detail-row">
+                    <span><strong>Statut :</strong></span>
+                    <span class="badge {% if payment_status.is_paid %}bg-success{% elif order.status == 'cancelled' %}bg-danger{% else %}bg-warning{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                
+                <div class="detail-row">
+                    <span><strong>Montant :</strong></span>
+                    <span class="fw-bold">{{ payment_status.total|floatformat:2 }} €</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span><strong>Méthode :</strong></span>
+                    <span>{{ order.get_payment_method_display }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span><strong>QR Code utilisé :</strong></span>
+                    <span>
+                        {% if payment_status.qr_used %}
+                            <i class="fas fa-check text-success me-1"></i>Oui
+                        {% else %}
+                            <i class="fas fa-times text-danger me-1"></i>Non
+                        {% endif %}
+                    </span>
+                </div>
+                
+                {% if order.charge_id %}
+                <div class="detail-row">
+                    <span><strong>ID Transaction :</strong></span>
+                    <span class="font-monospace small">{{ order.charge_id }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Actions -->
+            <div class="text-center mt-4">
+                {% if not payment_status.is_paid %}
+                    <button class="btn btn-primary me-2" onclick="refreshStatus()">
+                        <i class="fas fa-sync-alt me-1" id="refreshIcon"></i>
+                        Actualiser le statut
+                    </button>
+                {% endif %}
+                
+                {% if payment_status.is_paid %}
+                    <a href="{% url 'store:order_detail' order.id %}" class="btn btn-success">
+                        <i class="fas fa-eye me-2"></i>
+                        Voir la commande
+                    </a>
+                {% endif %}
+                
+                <a href="{% url 'store:home' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-home me-2"></i>
+                    Retour à l'accueil
+                </a>
+            </div>
+            
+            <!-- Informations supplémentaires -->
+            {% if not payment_status.is_paid %}
+            <div class="alert alert-info mt-4">
+                <h6 class="alert-heading">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Que faire maintenant ?
+                </h6>
+                <ul class="mb-0">
+                    {% if order.status == 'pending' %}
+                        <li>Attendez que le vendeur traite votre commande</li>
+                        <li>Vous recevrez une notification quand elle sera prête</li>
+                    {% elif order.status == 'processing' %}
+                        <li>Votre commande est en préparation</li>
+                        <li>Le livreur vous contactera bientôt</li>
+                    {% elif order.status == 'shipped' %}
+                        <li>Votre commande est en route</li>
+                        <li>Préparez le montant exact : {{ order.total|floatformat:2 }} €</li>
+                        <li>Le livreur vous fera scanner le QR Code pour payer</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshStatus() {
+    const refreshIcon = document.getElementById('refreshIcon');
+    refreshIcon.classList.add('refresh-btn');
+    
+    fetch('{% url "store:payment_verification" order.id %}', {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.is_paid) {
+            location.reload();
+        } else {
+            setTimeout(() => {
+                refreshIcon.classList.remove('refresh-btn');
+            }, 1000);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        refreshIcon.classList.remove('refresh-btn');
+    });
+}
+
+// Auto-refresh toutes les 30 secondes si pas encore payé
+{% if not payment_status.is_paid %}
+setInterval(function() {
+    fetch('{% url "store:payment_verification" order.id %}', {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.is_paid) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Erreur auto-refresh:', error));
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmer la livraison - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirmation-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .confirmation-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .confirmation-body {
+        background: white;
+        padding: 2rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .delivery-summary {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .btn-confirm {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        color: white;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .btn-confirm:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 confirmation-container">
+    <div class="confirmation-header">
+        <h1 class="mb-3">
+            <i class="fas fa-check-circle me-2"></i>
+            Confirmer la livraison
+        </h1>
+        <p class="mb-0">Commande #{{ order.id }}</p>
+    </div>
+    
+    <div class="confirmation-body">
+        <!-- Résumé de la livraison -->
+        <div class="delivery-summary">
+            <h5 class="mb-3">
+                <i class="fas fa-truck me-2"></i>
+                Résumé de la livraison
+            </h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Client :</strong> {{ order.user.username }}</p>
+                    <p><strong>Mode :</strong> {{ qr_code.get_delivery_mode_display }}</p>
+                    <p><strong>Adresse :</strong> {{ qr_code.delivery_address }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Total :</strong> {{ order.total|floatformat:2 }} €</p>
+                    <p><strong>Paiement :</strong> {{ qr_code.get_preferred_payment_method_display }}</p>
+                    <p><strong>Articles :</strong> {{ order.items.count }}</p>
+                </div>
+            </div>
+            
+            {% if qr_code.special_instructions %}
+            <div class="mt-3">
+                <strong>Instructions :</strong><br>
+                {{ qr_code.special_instructions }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Checklist de livraison -->
+        <div class="mb-4">
+            <h6 class="mb-3">
+                <i class="fas fa-clipboard-check me-2"></i>
+                Checklist de livraison
+            </h6>
+            
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="products_delivered">
+                <label class="form-check-label" for="products_delivered">
+                    Tous les produits ont été remis au client
+                </label>
+            </div>
+            
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="payment_received">
+                <label class="form-check-label" for="payment_received">
+                    Le paiement a été effectué ({{ qr_code.get_preferred_payment_method_display }})
+                </label>
+            </div>
+            
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="customer_satisfied">
+                <label class="form-check-label" for="customer_satisfied">
+                    Le client est satisfait de la livraison
+                </label>
+            </div>
+        </div>
+        
+        <!-- Formulaire de confirmation -->
+        <form method="post" id="confirmationForm">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="delivery_notes" class="form-label">
+                    Notes de livraison (optionnel)
+                </label>
+                <textarea class="form-control" id="delivery_notes" name="delivery_notes" 
+                          rows="3" placeholder="Commentaires sur la livraison..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-confirm" id="confirmBtn" disabled>
+                <i class="fas fa-check me-2"></i>
+                Confirmer la livraison terminée
+            </button>
+        </form>
+        
+        <div class="text-center mt-3">
+            <a href="{% url 'store:delivery_marketplace' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour au marketplace
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const confirmBtn = document.getElementById('confirmBtn');
+    
+    function updateConfirmButton() {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        confirmBtn.disabled = !allChecked;
+    }
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateConfirmButton);
+    });
+});
+</script>
+{% endblock %}

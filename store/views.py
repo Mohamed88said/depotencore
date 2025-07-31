@@ -1,7 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, Http404
 from django.core.paginator import Paginator
 from django.db.models import Q, Avg, Count, Sum
@@ -26,13 +24,6 @@ from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRe
 from marketing.models import PromoCode, LoyaltyPoint
 from admin_panel.models import Report
 
-# Configuration Stripe et PayPal
-stripe.api_key = settings.STRIPE_SECRET_KEY
-paypalrestsdk.configure({
-    "mode": settings.PAYPAL_MODE,
-    "client_id": settings.PAYPAL_CLIENT_ID,
-    "client_secret": settings.PAYPAL_CLIENT_SECRET
-})
 
 # === Vues de géolocalisation ===
 @login_required
@@ -667,8 +658,6 @@ def checkout(request):
         'shipping_cost': shipping_cost,
         'discount_amount': discount_amount,
         'total': total,
-        'stripe_publishable_key': settings.STRIPE_PUBLISHABLE_KEY,
-        'paypal_client_id': settings.PAYPAL_CLIENT_ID,
     }
     
     return render(request, 'store/checkout.html', context)
@@ -691,6 +680,11 @@ def process_payment(request):
         address_mode = request.POST.get('address_mode')
         shipping_option_id = request.POST.get('shipping_option')
         payment_method = request.POST.get('payment_method')
+        # Seul le paiement à la livraison est accepté
+        if payment_method != 'cod':
+            messages.error(request, "Seul le paiement à la livraison est disponible.")
+            return redirect('store:checkout')
+        
         payment_method_id = request.POST.get('payment_method_id')
         
         # Géolocalisation
@@ -794,7 +788,7 @@ def process_payment(request):
             discount_amount=discount_amount,
             shipping_address=shipping_address,
             shipping_option=shipping_option,
-            payment_method=payment_method,
+            payment_method='cod',
             charge_id=charge_id,
             latitude=float(latitude) if latitude else None,
             longitude=float(longitude) if longitude else None,

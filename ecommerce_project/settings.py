@@ -154,13 +154,6 @@ ACCOUNT_FORMS = {
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 
 
-# STRIPE_PUBLISHABLE_KEY = 'pk_test_51RUOCPBGr5oEf66oXK5ImVyHEKYxNfZc1tRZIGcQ0MkelckznWZT69kT3J4ZMFWbP27QxhHHWbwYI97mlmbugb8F009eoHvbRo'
-# STRIPE_WEBHOOK_SECRET = 'whsec_votre_secret_webhook'
-STRIPE_CUSTOMER_PORTAL_URL = 'https://billing.stripe.com/p/session/votre_url_portail_client'
-PAYPAL_CLIENT_ID = 'AfWNl_CAaIHLVu0CPVBSoSI6JNsJjBI3bCGbyli6J6UqqkRP46lLCPSodu_nGxAEoc5RtLbJFQwlovrc'
-# PAYPAL_CLIENT_SECRET = 'EEA53afJKGjC97FIwPifQHm_qQgdTJ3bG6ffsARGi3oho8cYzdlwlYjRseMnFdo35Xh9wSW3IYj4mvXr'
-PAYPAL_MODE = 'sandbox'
-
 PRODUCTS_PER_PAGE = 9
 
 RECAPTCHA_PUBLIC_KEY = '6Ld2ilErAAAAANKz1d0dytvMyM0SuTq_ir4tULYz'

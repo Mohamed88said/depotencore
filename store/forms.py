@@ -316,13 +316,10 @@ class CheckoutForm(forms.Form):
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
     )
     payment_method = forms.ChoiceField(
-        choices=Order.PAYMENT_METHODS,
+        choices=[('cod', 'Paiement à la livraison')],
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
     )
     
-    # Données de paiement
-    payment_method_id = forms.CharField(required=False, widget=forms.HiddenInput())
-    paypal_order_id = forms.CharField(required=False, widget=forms.HiddenInput())
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)

@@ -328,16 +328,11 @@ class StoreViewTests(TestCase):
     @patch('store.views.stripe.Customer.create')
     @patch('store.views.stripe.PaymentMethod.attach')
     @patch('store.views.stripe.Charge.list')
-    def test_process_payment_stripe(self, mock_charge_list, mock_payment_method_attach, mock_customer_create, mock_customer_list, mock_payment_intent_create):
-        """Teste le traitement du paiement avec Stripe."""
-        mock_customer_list.return_value = type('obj', (object,), {'data': []})()
-        mock_customer_create.return_value = type('obj', (object,), {'id': 'cus_123'})()
-        mock_payment_intent_create.return_value = type('obj', (object,), {'id': 'pi_123', 'status': 'succeeded'})()
-        mock_charge_list.return_value = type('obj', (object,), {'data': [{'id': 'ch_123'}]})()
+    def test_process_payment_cod(self):
+        """Teste le traitement du paiement à la livraison."""
         self.client.login(username=self.user.username, password='testpass')
         data = {
-            'payment_method': 'card',
-            'payment_method_id': 'pm_123',
+            'payment_method': 'cod',
             'address': self.address.id,
             'shipping_option': self.shipping_option.id
         }

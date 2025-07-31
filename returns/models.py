@@ -43,9 +43,8 @@ class ReturnRequest(models.Model):
 
 class Refund(models.Model):
     METHOD_CHOICES = (
-        ('card', 'Carte de crédit'),
-        ('paypal', 'PayPal'),
-        ('sepa', 'Virement SEPA'),
+        ('cod', 'Paiement à la livraison'),
+        ('manual', 'Remboursement manuel'),
     )
     STATUS_CHOICES = (
         ('PENDING', 'En attente'),

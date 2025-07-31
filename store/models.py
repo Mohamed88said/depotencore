@@ -215,10 +215,7 @@ class Order(models.Model):
         ('cancelled', 'Annulé'),
     ]
     PAYMENT_METHODS = [
-        ('card', 'Carte de crédit'),
         ('cod', 'Paiement à la livraison'),
-        ('paypal', 'PayPal'),
-        ('sepa', 'Virement SEPA'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')

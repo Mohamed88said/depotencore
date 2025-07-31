@@ -117,22 +117,20 @@ class ReturnsTests(TestCase):
 
     def test_return_request_review_approve(self):
         self.client.login(username='seller', password='pass123')
-        with patch('stripe.Refund.create') as mock_refund:
-            mock_refund.return_value = {'id': 're_test_123'}
-            response = self.client.post(
-                reverse('returns:return_review', kwargs={'return_id': self.return_request.id}),
-                {'status': 'APPROVED'}
-            )
-            self.assertEqual(response.status_code, 302)
-            self.return_request.refresh_from_db()
-            self.assertEqual(self.return_request.status, 'APPROVED')
-            self.assertTrue(Refund.objects.filter(return_request=self.return_request).exists())
-            # Vérifier la notification pour l'acheteur
-            self.assertTrue(Notification.objects.filter(
-                user=self.buyer,
-                notification_type='return_approved',
-                message__contains='Votre demande de retour'
-            ).exists())
+        response = self.client.post(
+            reverse('returns:return_review', kwargs={'return_id': self.return_request.id}),
+            {'status': 'APPROVED'}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.return_request.refresh_from_db()
+        self.assertEqual(self.return_request.status, 'APPROVED')
+        self.assertTrue(Refund.objects.filter(return_request=self.return_request).exists())
+        # Vérifier la notification pour l'acheteur
+        self.assertTrue(Notification.objects.filter(
+            user=self.buyer,
+            notification_type='return_approved',
+            message__contains='Votre demande de retour'
+        ).exists())
 
     def test_return_request_review_reject(self):
         self.client.login(username='seller', password='pass123')

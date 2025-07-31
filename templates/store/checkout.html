@@ -64,6 +64,24 @@
         color: white;
     }
     
+    .option-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .option-card:hover {
+        border-color: #3b82f6;
+    }
+    
+    .option-card.selected {
+        border-color: #3b82f6;
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+    
     .address-card {
         border: 2px solid #e2e8f0;
         border-radius: 8px;
@@ -82,24 +100,6 @@
         background-color: rgba(59, 130, 246, 0.05);
     }
     
-    .payment-method {
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    
-    .payment-method:hover {
-        border-color: #3b82f6;
-    }
-    
-    .payment-method.selected {
-        border-color: #3b82f6;
-        background-color: rgba(59, 130, 246, 0.05);
-    }
-    
     .summary-item {
         display: flex;
         justify-content: space-between;
@@ -113,7 +113,6 @@
         font-size: 1.1rem;
     }
     
-    /* Styles pour la carte */
     .map-container {
         position: relative;
         width: 100%;
@@ -195,7 +194,7 @@
     <div class="checkout-steps">
         <div class="step active">
             <div class="step-number">1</div>
-            <div class="step-label">Adresse</div>
+            <div class="step-label">Livraison</div>
         </div>
         <div class="step active">
             <div class="step-number">2</div>
@@ -214,8 +213,125 @@
                     <form method="post" id="checkoutForm" action="{% url 'store:process_payment' %}">
                         {% csrf_token %}
                         
-                        <!-- Section Adresse de livraison -->
+                        <!-- Section Mode de livraison -->
                         <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-truck me-2"></i>Mode de livraison</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="option-card" onclick="selectDeliveryMode(this, 'home')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="delivery_mode" id="delivery_home" value="home" checked>
+                                            <label class="form-check-label fw-bold" for="delivery_home">
+                                                <i class="fas fa-home me-2"></i>Livraison à domicile
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Livraison directement chez vous
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="option-card" onclick="selectDeliveryMode(this, 'pickup')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="delivery_mode" id="delivery_pickup" value="pickup">
+                                            <label class="form-check-label fw-bold" for="delivery_pickup">
+                                                <i class="fas fa-store me-2"></i>Retrait en boutique
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Récupérer chez le vendeur
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Mode de paiement futur -->
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-credit-card me-2"></i>Comment souhaitez-vous payer à la livraison ?</h4>
+                            <p class="text-muted mb-3">Le paiement se fera uniquement à la livraison via un QR Code sécurisé</p>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="option-card" onclick="selectPaymentMethod(this, 'cash')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="preferred_payment_method" id="payment_cash" value="cash" checked>
+                                            <label class="form-check-label fw-bold" for="payment_cash">
+                                                <i class="fas fa-money-bill-wave me-2"></i>Espèces
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Paiement en liquide au livreur
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="option-card" onclick="selectPaymentMethod(this, 'card')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="preferred_payment_method" id="payment_card" value="card">
+                                            <label class="form-check-label fw-bold" for="payment_card">
+                                                <i class="fas fa-credit-card me-2"></i>Carte bancaire
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Paiement par carte via QR Code
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="option-card" onclick="selectPaymentMethod(this, 'paypal')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="preferred_payment_method" id="payment_paypal" value="paypal">
+                                            <label class="form-check-label fw-bold" for="payment_paypal">
+                                                <i class="fab fa-paypal me-2"></i>PayPal
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Paiement PayPal via QR Code
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Commission de livraison -->
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-euro-sign me-2"></i>Commission de livraison</h4>
+                            <p class="text-muted mb-3">Qui prend en charge les frais de livraison ? (2€/km)</p>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="option-card" onclick="selectCommissionPayer(this, 'customer')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="commission_payer" id="commission_customer" value="customer" checked>
+                                            <label class="form-check-label fw-bold" for="commission_customer">
+                                                <i class="fas fa-user me-2"></i>Je paie la commission
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Vous payez les frais de livraison
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="option-card" onclick="selectCommissionPayer(this, 'vendor')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="commission_payer" id="commission_vendor" value="vendor">
+                                            <label class="form-check-label fw-bold" for="commission_vendor">
+                                                <i class="fas fa-store me-2"></i>Le vendeur paie
+                                            </label>
+                                        </div>
+                                        <div class="mt-2 text-muted small">
+                                            Le vendeur prend en charge la livraison
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Adresse de livraison (conditionnelle) -->
+                        <div class="mb-5" id="addressSection">
                             <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>Adresse de livraison</h4>
                             
                             <!-- Mode de sélection d'adresse -->
@@ -287,8 +403,8 @@
                             </div>
                         </div>
                         
-                        <!-- Section Localisation GPS -->
-                        <div class="mb-5">
+                        <!-- Section Localisation GPS (conditionnelle) -->
+                        <div class="mb-5" id="locationSection">
                             <h4 class="mb-3"><i class="fas fa-map me-2"></i>Localisation précise (optionnel)</h4>
                             <p class="text-muted mb-3">Aidez le livreur à vous trouver en précisant votre position sur la carte</p>
                             
@@ -322,9 +438,15 @@
                             </div>
                         </div>
                         
+                        <!-- Instructions spéciales -->
+                        <div class="mb-5">
+                            <h4 class="mb-3"><i class="fas fa-clipboard-list me-2"></i>Instructions spéciales</h4>
+                            <textarea class="form-control" name="special_instructions" rows="3" placeholder="Instructions pour le livreur (ex: sonner 2 fois, appartement au 2ème étage...)"></textarea>
+                        </div>
+                        
                         <!-- Méthode de livraison -->
                         <div class="mb-5">
-                            <h4 class="mb-3"><i class="fas fa-truck me-2"></i>Méthode de livraison</h4>
+                            <h4 class="mb-3"><i class="fas fa-shipping-fast me-2"></i>Options de livraison</h4>
                             {% for option in shipping_options %}
                             <div class="address-card" onclick="selectShipping(this, {{ option.id }})">
                                 <div class="form-check">
@@ -344,41 +466,12 @@
                             {% endfor %}
                         </div>
                         
-                        <!-- Méthode de paiement -->
-                        <div class="mb-5">
-                            <h4 class="mb-3"><i class="fas fa-money-bill-wave me-2"></i>Méthode de paiement</h4>
-                            
-                            <!-- Paiement à la livraison uniquement -->
-                            <div class="payment-method selected">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="payment_cod" value="cod" checked required>
-                                    <label class="form-check-label fw-bold" for="payment_cod">
-                                        <i class="fas fa-money-bill-wave me-2"></i>Paiement à la livraison
-                                    </label>
-                                </div>
-                                <div class="mt-2 text-muted small">
-                                    Payez en espèces lors de la réception de votre commande
-                                </div>
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <h6 class="text-success mb-2">
-                                        <i class="fas fa-shield-alt me-2"></i>Paiement sécurisé à la livraison
-                                    </h6>
-                                    <ul class="small text-muted mb-0">
-                                        <li>Payez uniquement à la réception de votre commande</li>
-                                        <li>Vérifiez vos produits avant de payer</li>
-                                        <li>Aucune donnée bancaire requise</li>
-                                        <li>Remboursement immédiat en cas de problème</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'store:cart' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Retour au panier
                             </a>
                             <button type="submit" class="btn btn-primary btn-lg px-4" id="submitButton">
-                                <i class="fas fa-check me-2"></i>Confirmer la commande
+                                <i class="fas fa-qrcode me-2"></i>Générer QR Code et confirmer
                             </button>
                         </div>
                     </form>
@@ -434,10 +527,10 @@
                             <span>Total</span>
                             <span id="total-amount">{{ total|floatformat:2 }} €</span>
                         </div>
-                        <div class="mt-3 p-2 bg-warning bg-opacity-10 rounded">
-                            <small class="text-warning">
-                                <i class="fas fa-info-circle me-1"></i>
-                                <strong>À payer à la livraison : {{ total|floatformat:2 }} €</strong>
+                        <div class="mt-3 p-2 bg-info bg-opacity-10 rounded">
+                            <small class="text-info">
+                                <i class="fas fa-qrcode me-1"></i>
+                                <strong>Paiement via QR Code à la livraison</strong>
                             </small>
                         </div>
                     </div>
@@ -457,7 +550,7 @@
             <div class="card shadow-sm border-0 mt-3">
                 <div class="card-body">
                     <h6 class="mb-3"><i class="fas fa-shield-alt me-2 text-success"></i>Commande sécurisée</h6>
-                    <p class="small text-muted mb-0">Vos données personnelles sont protégées. Paiement sécurisé à la livraison.</p>
+                    <p class="small text-muted mb-0">QR Code sécurisé généré pour chaque commande. Paiement uniquement à la livraison.</p>
                 </div>
             </div>
         </div>
@@ -538,6 +631,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Gestion du mode de livraison
+    function toggleSections() {
+        const deliveryMode = document.querySelector('input[name="delivery_mode"]:checked').value;
+        const addressSection = document.getElementById('addressSection');
+        const locationSection = document.getElementById('locationSection');
+        
+        if (deliveryMode === 'home') {
+            addressSection.style.display = 'block';
+            locationSection.style.display = 'block';
+        } else {
+            addressSection.style.display = 'none';
+            locationSection.style.display = 'none';
+        }
+    }
+    
     // Gestion du mode d'adresse
     const existingAddressRadio = document.getElementById('existing_address');
     const newAddressRadio = document.getElementById('new_address');
@@ -576,10 +684,56 @@ document.addEventListener('DOMContentLoaded', function() {
         newAddressRadio.addEventListener('change', toggleAddressMode);
     }
     
-    // Initialiser le mode d'adresse
+    // Initialiser les modes
+    toggleSections();
     toggleAddressMode();
     
+    // Écouter les changements de mode de livraison
+    document.querySelectorAll('input[name="delivery_mode"]').forEach(radio => {
+        radio.addEventListener('change', toggleSections);
+    });
+    
     // Fonctions de sélection
+    window.selectDeliveryMode = function(element, mode) {
+        document.querySelectorAll('.option-card').forEach(card => {
+            if (card.querySelector('input[name="delivery_mode"]')) {
+                card.classList.remove('selected');
+            }
+        });
+        element.classList.add('selected');
+        const radioInput = document.querySelector(`#delivery_${mode}`);
+        if (radioInput) {
+            radioInput.checked = true;
+            toggleSections();
+        }
+    };
+    
+    window.selectPaymentMethod = function(element, method) {
+        document.querySelectorAll('.option-card').forEach(card => {
+            if (card.querySelector('input[name="preferred_payment_method"]')) {
+                card.classList.remove('selected');
+            }
+        });
+        element.classList.add('selected');
+        const radioInput = document.querySelector(`#payment_${method}`);
+        if (radioInput) {
+            radioInput.checked = true;
+        }
+    };
+    
+    window.selectCommissionPayer = function(element, payer) {
+        document.querySelectorAll('.option-card').forEach(card => {
+            if (card.querySelector('input[name="commission_payer"]')) {
+                card.classList.remove('selected');
+            }
+        });
+        element.classList.add('selected');
+        const radioInput = document.querySelector(`#commission_${payer}`);
+        if (radioInput) {
+            radioInput.checked = true;
+        }
+    };
+    
     window.selectAddress = function(element, addressId) {
         document.querySelectorAll('.address-card').forEach(card => {
             card.classList.remove('selected');
@@ -671,43 +825,47 @@ document.addEventListener('DOMContentLoaded', function() {
     if (form && submitButton) {
         form.addEventListener('submit', function(e) {
             submitButton.disabled = true;
-            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Traitement...';
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Génération QR Code...';
             
-            // Validation des champs requis selon le mode
-            const addressModeElement = document.querySelector('input[name="address_mode"]:checked');
-            const addressMode = addressModeElement ? addressModeElement.value : 'existing';
+            // Validation selon le mode de livraison
+            const deliveryMode = document.querySelector('input[name="delivery_mode"]:checked').value;
             
-            if (addressMode === 'new') {
-                // Valider les champs de nouvelle adresse
-                const requiredFields = ['full_name', 'street_address', 'postal_code', 'city', 'country'];
-                let isValid = true;
+            if (deliveryMode === 'home') {
+                const addressModeElement = document.querySelector('input[name="address_mode"]:checked');
+                const addressMode = addressModeElement ? addressModeElement.value : 'existing';
                 
-                for (const fieldName of requiredFields) {
-                    const field = document.getElementById(fieldName);
-                    if (field && !field.value.trim()) {
-                        field.classList.add('is-invalid');
-                        isValid = false;
-                    } else if (field) {
-                        field.classList.remove('is-invalid');
+                if (addressMode === 'new') {
+                    // Valider les champs de nouvelle adresse
+                    const requiredFields = ['full_name', 'street_address', 'postal_code', 'city', 'country'];
+                    let isValid = true;
+                    
+                    for (const fieldName of requiredFields) {
+                        const field = document.getElementById(fieldName);
+                        if (field && !field.value.trim()) {
+                            field.classList.add('is-invalid');
+                            isValid = false;
+                        } else if (field) {
+                            field.classList.remove('is-invalid');
+                        }
                     }
-                }
-                
-                if (!isValid) {
-                    e.preventDefault();
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = '<i class="fas fa-check me-2"></i>Confirmer la commande';
-                    alert('Veuillez remplir tous les champs obligatoires.');
-                    return;
-                }
-            } else {
-                // Vérifier qu'une adresse existante est sélectionnée
-                const selectedAddress = document.querySelector('input[name="address"]:checked');
-                if (!selectedAddress) {
-                    e.preventDefault();
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = '<i class="fas fa-check me-2"></i>Confirmer la commande';
-                    alert('Veuillez sélectionner une adresse de livraison.');
-                    return;
+                    
+                    if (!isValid) {
+                        e.preventDefault();
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-qrcode me-2"></i>Générer QR Code et confirmer';
+                        alert('Veuillez remplir tous les champs obligatoires.');
+                        return;
+                    }
+                } else {
+                    // Vérifier qu'une adresse existante est sélectionnée
+                    const selectedAddress = document.querySelector('input[name="address"]:checked');
+                    if (!selectedAddress) {
+                        e.preventDefault();
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-qrcode me-2"></i>Générer QR Code et confirmer';
+                        alert('Veuillez sélectionner une adresse de livraison.');
+                        return;
+                    }
                 }
             }
             
@@ -716,7 +874,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!selectedShipping) {
                 e.preventDefault();
                 submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-check me-2"></i>Confirmer la commande';
+                submitButton.innerHTML = '<i class="fas fa-qrcode me-2"></i>Générer QR Code et confirmer';
                 alert('Veuillez sélectionner une méthode de livraison.');
                 return;
             }
@@ -724,6 +882,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Initialiser les sélections par défaut
+    const firstDeliveryMode = document.querySelector('input[name="delivery_mode"]:checked');
+    if (firstDeliveryMode) {
+        const card = firstDeliveryMode.closest('.option-card');
+        if (card) card.classList.add('selected');
+    }
+    
+    const firstPaymentMethod = document.querySelector('input[name="preferred_payment_method"]:checked');
+    if (firstPaymentMethod) {
+        const card = firstPaymentMethod.closest('.option-card');
+        if (card) card.classList.add('selected');
+    }
+    
+    const firstCommissionPayer = document.querySelector('input[name="commission_payer"]:checked');
+    if (firstCommissionPayer) {
+        const card = firstCommissionPayer.closest('.option-card');
+        if (card) card.classList.add('selected');
+    }
+    
     const firstShipping = document.querySelector('input[name="shipping_option"]:checked');
     if (firstShipping) {
         const card = firstShipping.closest('.address-card');

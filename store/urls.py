@@ -89,6 +89,11 @@ urlpatterns = [
     # Profil vendeur (modification)
     path('seller-profile/', views.seller_profile, name='seller_profile'),
     
+    # === URLs QR Code et livraison ===
+    path('delivery/scan/<str:code>/', views.scan_qr_payment, name='scan_qr_payment'),
+    path('delivery/qr/<int:order_id>/', views.view_qr_code, name='view_qr_code'),
+    path('vendor/orders/pending/', views.vendor_pending_orders, name='vendor_pending_orders'),
+    
     # === URLs pour les livreurs ===
     path('delivery/dashboard/', views.delivery_dashboard, name='delivery_dashboard'),
     path('delivery/orders/', views.delivery_orders, name='delivery_orders'),

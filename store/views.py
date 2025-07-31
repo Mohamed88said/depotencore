@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse, Http404
+from django.http import JsonResponse, HttpResponse, Http404, HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.db.models import Q, Avg, Count, Sum
 from django.views.generic import CreateView, UpdateView, DeleteView, View
@@ -12,13 +12,16 @@ import json
 import stripe
 import paypalrestsdk
 import requests
+import qrcode
+import base64
+from io import BytesIO
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
-    SellerRating, SellerProfile, Subscription
+    SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryProfile, DeliveryRating
 )
 from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm, CheckoutForm
 from marketing.models import PromoCode, LoyaltyPoint
@@ -391,6 +394,100 @@ def seller_profile(request):
     return render(request, 'accounts/seller_profile.html', {
         'form': profile  # Passer l'objet profile comme form pour compatibilité template
     })
+
+@login_required
+def view_qr_code(request, order_id):
+    """Affiche le QR Code d'une commande pour le vendeur"""
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Vérifier que l'utilisateur est le vendeur de cette commande
+    if not order.items.filter(product__seller=request.user).exists():
+        return HttpResponseForbidden("Vous n'êtes pas autorisé à voir ce QR Code.")
+    
+    try:
+        qr_code = order.qr_code
+        
+        # Générer l'image QR Code
+        qr_url = f"{settings.SITE_URL}{qr_code.qr_url}"
+        
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        
+        # Créer l'image
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convertir en base64 pour l'affichage
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        context = {
+            'order': order,
+            'qr_code': qr_code,
+            'qr_image': img_str,
+            'qr_url': qr_url
+        }
+        
+        return render(request, 'store/qr_code_view.html', context)
+        
+    except QRDeliveryCode.DoesNotExist:
+        messages.error(request, "QR Code non trouvé pour cette commande.")
+        return redirect('dashboard:orders')
+
+def scan_qr_payment(request, code):
+    """Page de paiement accessible via scan QR Code"""
+    try:
+        qr_code = get_object_or_404(QRDeliveryCode, code=code)
+        
+        # Vérifier que le QR Code n'a pas expiré
+        if qr_code.is_expired:
+            return render(request, 'store/qr_expired.html', {'qr_code': qr_code})
+        
+        # Vérifier que la commande n'est pas déjà payée
+        if qr_code.order.status == 'delivered':
+            return render(request, 'store/already_paid.html', {'order': qr_code.order})
+        
+        order = qr_code.order
+        
+        context = {
+            'order': order,
+            'qr_code': qr_code,
+            'delivery_info': {
+                'address': qr_code.delivery_address,
+                'mode': qr_code.get_delivery_mode_display(),
+                'payment_method': qr_code.get_preferred_payment_method_display(),
+                'instructions': qr_code.special_instructions
+            }
+        }
+        
+        return render(request, 'store/qr_payment.html', context)
+        
+    except QRDeliveryCode.DoesNotExist:
+        return render(request, 'store/qr_not_found.html')
+
+@login_required
+def vendor_pending_orders(request):
+    """Liste des commandes en attente pour le vendeur"""
+    if request.user.user_type != 'seller':
+        return HttpResponseForbidden("Accès réservé aux vendeurs.")
+    
+    # Commandes en attente du vendeur
+    pending_orders = Order.objects.filter(
+        items__product__seller=request.user,
+        status='pending'
+    ).distinct().order_by('-created_at')
+    
+    context = {
+        'pending_orders': pending_orders
+    }
+    
+    return render(request, 'store/vendor_pending_orders.html', context)
 
 # === Vues principales ===
 def home(request):

@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Commandes en attente{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s;
+    }
+    
+    .order-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .order-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    
+    .qr-preview {
+        max-width: 150px;
+        border: 3px solid #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .delivery-choice {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .choice-btn {
+        width: 100%;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 10px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    
+    .choice-btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    .order-details {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold">
+            <i class="fas fa-clock me-2"></i>
+            Commandes en attente
+        </h1>
+        <p class="lead text-muted">Choisissez comment livrer vos commandes</p>
+    </div>
+    
+    {% if pending_orders %}
+        {% for order in pending_orders %}
+        <div class="order-card">
+            <div class="order-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-1">
+                            <i class="fas fa-shopping-cart me-2"></i>
+                            Commande #{{ order.id }}
+                        </h4>
+                        <p class="mb-0">
+                            <i class="fas fa-user me-1"></i>{{ order.user.username }} • 
+                            <i class="fas fa-calendar me-1"></i>{{ order.created_at|date:"d/m/Y H:i" }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="badge bg-warning fs-6 px-3 py-2">
+                            {{ order.get_status_display }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Détails de la commande -->
+                    <div class="order-details">
+                        <h6 class="mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Détails de la commande
+                        </h6>
+                        
+                        <div class="detail-row">
+                            <span><strong>Mode de livraison :</strong></span>
+                            <span>
+                                <i class="fas fa-{{ order.delivery_mode == 'home' and 'home' or 'store' }} me-1"></i>
+                                {{ order.get_delivery_mode_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span><strong>Paiement préféré :</strong></span>
+                            <span>
+                                {% if order.preferred_payment_method == 'cash' %}
+                                    <i class="fas fa-money-bill-wave me-1"></i>
+                                {% elif order.preferred_payment_method == 'card' %}
+                                    <i class="fas fa-credit-card me-1"></i>
+                                {% else %}
+                                    <i class="fab fa-paypal me-1"></i>
+                                {% endif %}
+                                {{ order.get_preferred_payment_method_display }}
+                            </span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span><strong>Commission :</strong></span>
+                            <span>{{ order.get_commission_payer_display }}</span>
+                        </div>
+                        
+                        {% if order.delivery_mode == 'home' and order.shipping_address %}
+                        <div class="detail-row">
+                            <span><strong>Adresse :</strong></span>
+                            <span>{{ order.shipping_address.street_address }}, {{ order.shipping_address.city }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if order.location_description %}
+                        <div class="detail-row">
+                            <span><strong>Localisation :</strong></span>
+                            <span>{{ order.location_description }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="detail-row">
+                            <span><strong>Total :</strong></span>
+                            <span class="fw-bold text-success">{{ order.total|floatformat:2 }} €</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Articles -->
+                    <div class="mt-3">
+                        <h6 class="mb-2">
+                            <i class="fas fa-box me-2"></i>
+                            Articles ({{ order.items.count }})
+                        </h6>
+                        <div class="row g-2">
+                            {% for item in order.items.all %}
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center p-2 bg-light rounded">
+                                    {% if item.product.image1 %}
+                                        <img src="{{ item.product.image1.url }}" width="40" height="40" class="rounded me-2" alt="{{ item.product.name }}">
+                                    {% endif %}
+                                    <div>
+                                        <small class="fw-bold">{{ item.product.name }}</small><br>
+                                        <small class="text-muted">{{ item.quantity }} × {{ item.price|floatformat:2 }} €</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <!-- QR Code -->
+                    <div class="text-center mb-3">
+                        <h6>
+                            <i class="fas fa-qrcode me-2"></i>
+                            QR Code généré
+                        </h6>
+                        <a href="{% url 'store:view_qr_code' order.id %}" target="_blank">
+                            <div class="qr-preview bg-white p-2 d-inline-block">
+                                <i class="fas fa-qrcode fa-3x text-primary"></i>
+                            </div>
+                        </a>
+                        <br>
+                        <a href="{% url 'store:view_qr_code' order.id %}" class="btn btn-outline-primary btn-sm mt-2">
+                            <i class="fas fa-eye me-1"></i>Voir QR Code
+                        </a>
+                    </div>
+                    
+                    <!-- Choix de livraison -->
+                    <div class="delivery-choice">
+                        <h6 class="text-center mb-3">
+                            <i class="fas fa-truck me-2"></i>
+                            Mode de livraison
+                        </h6>
+                        
+                        <button class="btn btn-primary choice-btn" onclick="deliverMyself({{ order.id }})">
+                            <i class="fas fa-user me-2"></i>
+                            Je livre moi-même
+                        </button>
+                        
+                        <button class="btn btn-success choice-btn" onclick="assignDelivery({{ order.id }})">
+                            <i class="fas fa-motorcycle me-2"></i>
+                            Assigner un livreur
+                        </button>
+                        
+                        <button class="btn btn-outline-danger choice-btn" onclick="cancelOrder({{ order.id }})">
+                            <i class="fas fa-times me-2"></i>
+                            Annuler la commande
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">Aucune commande en attente</h4>
+            <p class="text-muted">Les nouvelles commandes apparaîtront ici avec leur QR Code</p>
+            <a href="{% url 'dashboard:overview' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour au tableau de bord
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function deliverMyself(orderId) {
+    if (confirm('Confirmez-vous que vous souhaitez livrer cette commande vous-même ?')) {
+        // Ici on traiterait la livraison par le vendeur
+        alert('Commande assignée pour livraison personnelle. Vous recevrez les détails par notification.');
+        location.reload();
+    }
+}
+
+function assignDelivery(orderId) {
+    if (confirm('Souhaitez-vous assigner cette commande à un livreur ?')) {
+        // Redirection vers la page d'assignation de livreur
+        window.location.href = `/vendor/assign-delivery/${orderId}/`;
+    }
+}
+
+function cancelOrder(orderId) {
+    const reason = prompt('Raison de l\'annulation (sera communiquée au client) :');
+    if (reason && reason.trim()) {
+        if (confirm('Confirmez-vous l\'annulation de cette commande ?')) {
+            // Ici on traiterait l'annulation
+            alert('Commande annulée. Le client sera notifié.');
+            location.reload();
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -9,6 +9,8 @@ from django.dispatch import receiver
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import os
+import uuid
+from datetime import timedelta
 
 # === Modèle Category ===
 class Category(models.Model):
@@ -257,6 +259,33 @@ class Order(models.Model):
     def __str__(self):
         return f"Commande {self.id} par {self.user.username}"
 
+    # Nouveaux champs pour le système QR
+    delivery_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('home', 'Livraison à domicile'),
+            ('pickup', 'Retrait en boutique')
+        ],
+        default='home'
+    )
+    preferred_payment_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('card', 'Carte bancaire'),
+            ('paypal', 'PayPal'),
+            ('cash', 'Espèces')
+        ],
+        default='cash'
+    )
+    commission_payer = models.CharField(
+        max_length=20,
+        choices=[
+            ('vendor', 'Vendeur paie la commission'),
+            ('customer', 'Client paie la commission')
+        ],
+        default='customer'
+    )
+
     @property
     def can_assign_delivery(self):
         """Vérifie si la commande peut être assignée à un livreur"""
@@ -480,6 +509,139 @@ class DeliveryProfile(models.Model):
         self.current_longitude = longitude
         self.last_location_update = timezone.now()
         self.save(update_fields=['current_latitude', 'current_longitude', 'last_location_update'])
+
+# === Modèle QR Code de livraison ===
+class QRDeliveryCode(models.Model):
+    """QR Code généré pour chaque commande contenant les infos de livraison"""
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='qr_code')
+    code = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    delivery_address = models.TextField(verbose_name="Adresse de livraison")
+    delivery_mode = models.CharField(max_length=20, verbose_name="Mode de livraison")
+    preferred_payment_method = models.CharField(max_length=20, verbose_name="Mode de paiement préféré")
+    vendor_address = models.TextField(blank=True, verbose_name="Adresse vendeur")
+    special_instructions = models.TextField(blank=True, verbose_name="Instructions spéciales")
+    
+    # Sécurité
+    expires_at = models.DateTimeField(verbose_name="Expire le")
+    is_used = models.BooleanField(default=False, verbose_name="Utilisé")
+    scanned_at = models.DateTimeField(null=True, blank=True, verbose_name="Scanné le")
+    
+    # Métadonnées
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "QR Code de livraison"
+        verbose_name_plural = "QR Codes de livraison"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"QR Code pour commande #{self.order.id}"
+    
+    @property
+    def is_expired(self):
+        """Vérifie si le QR Code a expiré"""
+        return timezone.now() > self.expires_at
+    
+    @property
+    def qr_url(self):
+        """URL pour scanner le QR Code"""
+        return f"/delivery/scan/{self.code}/"
+    
+    def mark_as_used(self):
+        """Marque le QR Code comme utilisé"""
+        self.is_used = True
+        self.scanned_at = timezone.now()
+        self.save(update_fields=['is_used', 'scanned_at'])
+
+# === Modèle d'assignation de livraison ===
+class DeliveryAssignment(models.Model):
+    """Assignation d'une livraison à un livreur"""
+    STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('accepted', 'Acceptée'),
+        ('picked_up', 'Récupérée chez vendeur'),
+        ('in_transit', 'En cours de livraison'),
+        ('delivered', 'Livrée'),
+        ('cancelled', 'Annulée'),
+        ('expired', 'Expirée')
+    ]
+    
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='delivery_assignments')
+    vendor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='vendor_assignments'
+    )
+    delivery_person = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='delivery_assignments',
+        limit_choices_to={'user_type': 'delivery'}
+    )
+    
+    # Commission et paiement
+    commission_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant commission")
+    commission_payer = models.CharField(
+        max_length=20,
+        choices=[
+            ('vendor', 'Vendeur'),
+            ('customer', 'Client')
+        ],
+        verbose_name="Qui paie la commission"
+    )
+    distance_km = models.FloatField(default=0, verbose_name="Distance en km")
+    
+    # Statut et timestamps
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    picked_up_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(verbose_name="Expire le")
+    
+    # Instructions
+    vendor_instructions = models.TextField(blank=True, verbose_name="Instructions du vendeur")
+    delivery_notes = models.TextField(blank=True, verbose_name="Notes de livraison")
+    
+    class Meta:
+        verbose_name = "Assignation de livraison"
+        verbose_name_plural = "Assignations de livraison"
+        ordering = ['-assigned_at']
+    
+    def __str__(self):
+        return f"Livraison #{self.id} - Commande #{self.order.id}"
+    
+    @property
+    def is_expired(self):
+        """Vérifie si l'assignation a expiré"""
+        return timezone.now() > self.expires_at and self.status == 'pending'
+    
+    def calculate_commission(self):
+        """Calcule la commission basée sur la distance"""
+        base_commission = 2.0  # 2€ par km
+        return self.distance_km * base_commission
+    
+    def accept_delivery(self, delivery_person):
+        """Accepte la livraison"""
+        self.delivery_person = delivery_person
+        self.status = 'accepted'
+        self.accepted_at = timezone.now()
+        self.save()
+    
+    def mark_picked_up(self):
+        """Marque comme récupéré chez le vendeur"""
+        self.status = 'picked_up'
+        self.picked_up_at = timezone.now()
+        self.save()
+    
+    def mark_delivered(self):
+        """Marque comme livré"""
+        self.status = 'delivered'
+        self.delivered_at = timezone.now()
+        self.save()
 
 class DeliveryRating(models.Model):
     """Évaluation des livreurs par les clients"""

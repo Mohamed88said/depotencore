@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Commande déjà payée{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 text-center">
+                <div class="card-body p-5">
+                    <i class="fas fa-check-circle fa-4x text-success mb-4"></i>
+                    <h2 class="mb-3">Commande déjà payée</h2>
+                    <p class="lead text-muted mb-4">
+                        Cette commande #{{ order.id }} a déjà été payée et livrée.
+                    </p>
+                    <div class="bg-light rounded p-3 mb-4">
+                        <p class="mb-1"><strong>Date de livraison :</strong> {{ order.updated_at|date:"d/m/Y H:i" }}</p>
+                        <p class="mb-0"><strong>Montant payé :</strong> {{ order.total|floatformat:2 }} €</p>
+                    </div>
+                    <a href="{% url 'store:home' %}" class="btn btn-primary mt-3">
+                        <i class="fas fa-home me-2"></i>Retour à l'accueil
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

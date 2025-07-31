@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QR Code de livraison - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qr-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .qr-code-display {
+        text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        margin-bottom: 2rem;
+    }
+    
+    .qr-image {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        display: inline-block;
+        margin: 1rem 0;
+    }
+    
+    .order-details {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+    }
+    
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .detail-item:last-child {
+        border-bottom: none;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+    }
+    
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-processing {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .btn-action {
+        margin: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 qr-container">
+    <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold">QR Code de livraison</h1>
+        <p class="lead text-muted">Commande #{{ order.id }}</p>
+    </div>
+    
+    <!-- QR Code Display -->
+    <div class="qr-code-display">
+        <h3 class="mb-3">
+            <i class="fas fa-qrcode me-2"></i>
+            QR Code de livraison
+        </h3>
+        
+        <div class="qr-image">
+            <img src="data:image/png;base64,{{ qr_image }}" alt="QR Code de livraison" style="max-width: 300px;">
+        </div>
+        
+        <p class="mb-2">
+            <strong>URL du QR Code :</strong><br>
+            <code>{{ qr_url }}</code>
+        </p>
+        
+        <div class="mt-3">
+            <button class="btn btn-light btn-sm" onclick="copyToClipboard('{{ qr_url }}')">
+                <i class="fas fa-copy me-1"></i>Copier le lien
+            </button>
+            <button class="btn btn-light btn-sm" onclick="downloadQR()">
+                <i class="fas fa-download me-1"></i>Télécharger QR
+            </button>
+        </div>
+    </div>
+    
+    <!-- Détails de la commande -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informations de livraison
+                    </h5>
+                </div>
+                <div class="card-body order-details">
+                    <div class="detail-item">
+                        <span><strong>Mode de livraison :</strong></span>
+                        <span>{{ qr_code.get_delivery_mode_display }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Adresse :</strong></span>
+                        <span>{{ qr_code.delivery_address }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Paiement préféré :</strong></span>
+                        <span>{{ qr_code.get_preferred_payment_method_display }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Commission :</strong></span>
+                        <span>{{ order.get_commission_payer_display }}</span>
+                    </div>
+                    {% if qr_code.special_instructions %}
+                    <div class="detail-item">
+                        <span><strong>Instructions :</strong></span>
+                        <span>{{ qr_code.special_instructions }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="detail-item">
+                        <span><strong>Expire le :</strong></span>
+                        <span>{{ qr_code.expires_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>
+                        Détails de la commande
+                    </h5>
+                </div>
+                <div class="card-body order-details">
+                    <div class="detail-item">
+                        <span><strong>Client :</strong></span>
+                        <span>{{ order.user.username }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Date :</strong></span>
+                        <span>{{ order.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Statut :</strong></span>
+                        <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Total :</strong></span>
+                        <span class="fw-bold text-success">{{ order.total|floatformat:2 }} €</span>
+                    </div>
+                    <div class="detail-item">
+                        <span><strong>Articles :</strong></span>
+                        <span>{{ order.items.count }} produit{{ order.items.count|pluralize }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Articles de la commande -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-box me-2"></i>
+                Articles commandés
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Quantité</th>
+                            <th>Prix unitaire</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if item.product.image1 %}
+                                        <img src="{{ item.product.image1.url }}" width="40" height="40" class="rounded me-2" alt="{{ item.product.name }}">
+                                    {% endif %}
+                                    <span>{{ item.product.name }}</span>
+                                </div>
+                            </td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.price|floatformat:2 }} €</td>
+                            <td class="fw-bold">{{ item.quantity|floatformat:2|multiply:item.price }} €</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="text-center mt-4">
+        <h4 class="mb-3">Choisissez votre mode de livraison</h4>
+        
+        <div class="d-flex justify-content-center flex-wrap">
+            <a href="#" class="btn btn-primary btn-action">
+                <i class="fas fa-user me-2"></i>
+                Je livre moi-même
+            </a>
+            
+            <a href="#" class="btn btn-success btn-action">
+                <i class="fas fa-motorcycle me-2"></i>
+                Assigner un livreur
+            </a>
+            
+            <a href="{% url 'dashboard:orders' %}" class="btn btn-outline-secondary btn-action">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour aux commandes
+            </a>
+        </div>
+    </div>
+    
+    <!-- Instructions -->
+    <div class="alert alert-info mt-4">
+        <h6 class="alert-heading">
+            <i class="fas fa-lightbulb me-2"></i>
+            Instructions d'utilisation
+        </h6>
+        <ul class="mb-0">
+            <li><strong>QR Code :</strong> Le client scannera ce code pour payer à la livraison</li>
+            <li><strong>Sécurité :</strong> Le code expire dans 7 jours et ne contient pas le prix</li>
+            <li><strong>Livraison :</strong> Choisissez si vous livrez ou assignez un livreur</li>
+            <li><strong>Paiement :</strong> Le client paiera selon sa méthode préférée via le QR Code</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Lien copié dans le presse-papiers !');
+    }, function(err) {
+        console.error('Erreur lors de la copie : ', err);
+    });
+}
+
+function downloadQR() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = function() {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        const link = document.createElement('a');
+        link.download = 'qr-code-commande-{{ order.id }}.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    };
+    
+    img.src = 'data:image/png;base64,{{ qr_image }}';
+}
+</script>
+{% endblock %}

@@ -255,6 +255,40 @@ class ReportForm(forms.ModelForm):
         }
 
 class CheckoutForm(forms.Form):
+    # Mode de livraison
+    delivery_mode = forms.ChoiceField(
+        choices=[
+            ('home', 'Livraison à domicile'),
+            ('pickup', 'Retrait en boutique')
+        ],
+        widget=forms.RadioSelect(attrs={'class': 'btn-check'}),
+        initial='home',
+        label="Mode de livraison"
+    )
+    
+    # Mode de paiement futur
+    preferred_payment_method = forms.ChoiceField(
+        choices=[
+            ('cash', 'Espèces'),
+            ('card', 'Carte bancaire'),
+            ('paypal', 'PayPal')
+        ],
+        widget=forms.RadioSelect(attrs={'class': 'btn-check'}),
+        initial='cash',
+        label="Comment souhaitez-vous payer à la livraison ?"
+    )
+    
+    # Qui paie la commission de livraison
+    commission_payer = forms.ChoiceField(
+        choices=[
+            ('customer', 'Je paie la commission de livraison'),
+            ('vendor', 'Le vendeur paie la commission')
+        ],
+        widget=forms.RadioSelect(attrs={'class': 'btn-check'}),
+        initial='customer',
+        label="Commission de livraison"
+    )
+    
     # Mode d'adresse
     address_mode = forms.ChoiceField(
         choices=[('existing', 'Adresse existante'), ('new', 'Nouvelle adresse')],
@@ -310,16 +344,22 @@ class CheckoutForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
     )
     
+    # Instructions spéciales pour la livraison
+    special_instructions = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control', 
+            'rows': 3,
+            'placeholder': 'Instructions spéciales pour le livreur (ex: sonner 2 fois, appartement au 2ème étage...)'
+        }),
+        label="Instructions spéciales"
+    )
+    
     # Options de livraison et paiement
     shipping_option = forms.ModelChoiceField(
         queryset=ShippingOption.objects.filter(is_active=True),
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
     )
-    payment_method = forms.ChoiceField(
-        choices=[('cod', 'Paiement à la livraison')],
-        widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
-    )
-    
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -328,15 +368,18 @@ class CheckoutForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
+        delivery_mode = cleaned_data.get('delivery_mode')
         address_mode = cleaned_data.get('address_mode')
         
-        if address_mode == 'existing':
-            if not cleaned_data.get('address'):
-                raise forms.ValidationError("Veuillez sélectionner une adresse.")
-        else:
-            required_fields = ['full_name', 'street_address', 'city', 'postal_code', 'country']
-            for field in required_fields:
-                if not cleaned_data.get(field):
-                    raise forms.ValidationError(f"Le champ {field} est requis pour une nouvelle adresse.")
+        # Validation adresse seulement si livraison à domicile
+        if delivery_mode == 'home':
+            if address_mode == 'existing':
+                if not cleaned_data.get('address'):
+                    raise forms.ValidationError("Veuillez sélectionner une adresse pour la livraison.")
+            else:
+                required_fields = ['full_name', 'street_address', 'city', 'postal_code', 'country']
+                for field in required_fields:
+                    if not cleaned_data.get(field):
+                        raise forms.ValidationError(f"Le champ {field} est requis pour une nouvelle adresse.")
         
         return cleaned_data

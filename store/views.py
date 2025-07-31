@@ -1,7 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse, HttpResponse, Http404, HttpResponseForbidden
 from django.core.paginator import Paginator
@@ -18,6 +16,8 @@ import paypalrestsdk
 import requests
 import qrcode
 import base64
+
+User = get_user_model()
 from io import BytesIO
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync

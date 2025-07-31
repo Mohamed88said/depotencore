@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Marketplace des livraisons{% endblock %}
+
+{% block extra_css %}
+<style>
+    .marketplace-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .delivery-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s;
+    }
+    
+    .delivery-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .delivery-card.available {
+        border-left: 5px solid #10b981;
+    }
+    
+    .delivery-card.my-delivery {
+        border-left: 5px solid #3b82f6;
+        background-color: rgba(59, 130, 246, 0.02);
+    }
+    
+    .commission-badge {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    .distance-info {
+        background: #f3f4f6;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        display: inline-block;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .status-pending { background-color: #fef3c7; color: #92400e; }
+    .status-accepted { background-color: #dbeafe; color: #1e40af; }
+    .status-picked_up { background-color: #fde68a; color: #92400e; }
+    .status-in_transit { background-color: #a7f3d0; color: #065f46; }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-accept {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .btn-accept:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 marketplace-container">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold">
+            <i class="fas fa-store me-2"></i>
+            Marketplace des livraisons
+        </h1>
+        <p class="lead text-muted">Trouvez et acceptez des courses près de chez vous</p>
+    </div>
+    
+    <!-- Navigation par onglets -->
+    <ul class="nav nav-tabs mb-4" id="deliveryTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="available-tab" data-bs-toggle="tab" 
+                    data-bs-target="#available" type="button" role="tab">
+                <i class="fas fa-search me-2"></i>
+                Courses disponibles ({{ available_assignments.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="my-deliveries-tab" data-bs-toggle="tab" 
+                    data-bs-target="#my-deliveries" type="button" role="tab">
+                <i class="fas fa-motorcycle me-2"></i>
+                Mes livraisons ({{ my_assignments.count }})
+            </button>
+        </li>
+    </ul>
+    
+    <div class="tab-content" id="deliveryTabsContent">
+        <!-- Courses disponibles -->
+        <div class="tab-pane fade show active" id="available" role="tabpanel">
+            {% if available_assignments %}
+                {% for assignment in available_assignments %}
+                <div class="delivery-card available">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-shopping-cart me-2"></i>
+                                    Commande #{{ assignment.order.id }}
+                                </h5>
+                                <div class="commission-badge">
+                                    {{ assignment.commission_amount|floatformat:1 }} €
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <i class="fas fa-store me-1"></i>
+                                        <strong>Vendeur :</strong> {{ assignment.vendor.username }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        <strong>Mode :</strong> {{ assignment.order.get_delivery_mode_display }}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="distance-info mb-2">
+                                        <i class="fas fa-route me-1"></i>
+                                        {{ assignment.distance_km }} km
+                                    </div>
+                                    <p class="mb-1">
+                                        <i class="fas fa-credit-card me-1"></i>
+                                        {{ assignment.order.get_preferred_payment_method_display }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {% if assignment.order.shipping_address %}
+                            <div class="mb-2">
+                                <i class="fas fa-map-pin me-1"></i>
+                                <strong>Livraison :</strong> 
+                                {{ assignment.order.shipping_address.city }}, {{ assignment.order.shipping_address.postal_code }}
+                            </div>
+                            {% endif %}
+                            
+                            {% if assignment.vendor_instructions %}
+                            <div class="mb-2">
+                                <i class="fas fa-clipboard-list me-1"></i>
+                                <strong>Instructions :</strong> {{ assignment.vendor_instructions|truncatechars:100 }}
+                            </div>
+                            {% endif %}
+                            
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                Publié {{ assignment.assigned_at|timesince }} • 
+                                Expire {{ assignment.expires_at|timeuntil }}
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4 text-end">
+                            <div class="action-buttons">
+                                <a href="{% url 'store:accept_delivery_assignment' assignment.id %}" 
+                                   class="btn btn-accept btn-lg">
+                                    <i class="fas fa-hand-paper me-2"></i>
+                                    Accepter
+                                </a>
+                                <button class="btn btn-outline-info btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#detailsModal{{ assignment.id }}">
+                                    <i class="fas fa-eye me-1"></i>
+                                    Détails
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal détails -->
+                <div class="modal fade" id="detailsModal{{ assignment.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Détails - Commande #{{ assignment.order.id }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p><strong>Vendeur :</strong> {{ assignment.vendor.username }}</p>
+                                <p><strong>Client :</strong> {{ assignment.order.user.username }}</p>
+                                <p><strong>Distance :</strong> {{ assignment.distance_km }} km</p>
+                                <p><strong>Commission :</strong> {{ assignment.commission_amount }} €</p>
+                                <p><strong>Payée par :</strong> {{ assignment.get_commission_payer_display }}</p>
+                                {% if assignment.order.shipping_address %}
+                                <p><strong>Adresse complète :</strong><br>
+                                   {{ assignment.order.shipping_address.full_name }}<br>
+                                   {{ assignment.order.shipping_address.street_address }}<br>
+                                   {{ assignment.order.shipping_address.city }}, {{ assignment.order.shipping_address.postal_code }}
+                                   {% if assignment.order.shipping_address.phone_number %}
+                                   <br>Tél: {{ assignment.order.shipping_address.phone_number }}
+                                   {% endif %}
+                                </p>
+                                {% endif %}
+                                {% if assignment.vendor_instructions %}
+                                <p><strong>Instructions :</strong><br>{{ assignment.vendor_instructions }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                <a href="{% url 'store:accept_delivery_assignment' assignment.id %}" 
+                                   class="btn btn-success">Accepter cette course</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">Aucune course disponible</h4>
+                    <p class="text-muted">Revenez plus tard pour de nouvelles opportunités</p>
+                    <a href="{% url 'store:delivery_profile_management' %}" class="btn btn-primary">
+                        <i class="fas fa-user me-2"></i>Gérer mon profil
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Mes livraisons -->
+        <div class="tab-pane fade" id="my-deliveries" role="tabpanel">
+            {% if my_assignments %}
+                {% for assignment in my_assignments %}
+                <div class="delivery-card my-delivery">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-shopping-cart me-2"></i>
+                                    Commande #{{ assignment.order.id }}
+                                </h5>
+                                <div class="status-badge status-{{ assignment.status }}">
+                                    {{ assignment.get_status_display }}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-2">
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <i class="fas fa-store me-1"></i>
+                                        {{ assignment.vendor.username }}
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="fas fa-user me-1"></i>
+                                        {{ assignment.order.user.username }}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1">
+                                        <i class="fas fa-euro-sign me-1"></i>
+                                        {{ assignment.commission_amount }} € commission
+                                    </p>
+                                    <p class="mb-1">
+                                        <i class="fas fa-route me-1"></i>
+                                        {{ assignment.distance_km }} km
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <small class="text-muted">
+                                Accepté {{ assignment.accepted_at|timesince }}
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4 text-end">
+                            <div class="action-buttons">
+                                {% if assignment.status == 'accepted' %}
+                                    <a href="{% url 'store:mark_picked_up' assignment.id %}" 
+                                       class="btn btn-warning">
+                                        <i class="fas fa-box me-1"></i>
+                                        Récupéré
+                                    </a>
+                                    <a href="{% url 'store:reject_delivery_assignment' assignment.id %}" 
+                                       class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-times me-1"></i>
+                                        Annuler
+                                    </a>
+                                {% elif assignment.status == 'picked_up' %}
+                                    <a href="{% url 'store:complete_delivery_assignment' assignment.id %}" 
+                                       class="btn btn-success">
+                                        <i class="fas fa-check me-1"></i>
+                                        Livré
+                                    </a>
+                                {% elif assignment.status == 'delivered' %}
+                                    <span class="text-success fw-bold">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        Terminé
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-motorcycle fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">Aucune livraison en cours</h4>
+                    <p class="text-muted">Acceptez des courses dans l'onglet "Courses disponibles"</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sélectionner un livreur - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .courier-selection-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .courier-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .courier-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .courier-card.selected {
+        border-color: #10b981;
+        background-color: rgba(16, 185, 129, 0.05);
+    }
+    
+    .courier-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e2e8f0;
+    }
+    
+    .rating-stars {
+        color: #fbbf24;
+        font-size: 1.1rem;
+    }
+    
+    .vehicle-icon {
+        font-size: 1.5rem;
+        margin-right: 0.5rem;
+    }
+    
+    .marketplace-option {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .order-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 courier-selection-container">
+    <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold">
+            <i class="fas fa-motorcycle me-2"></i>
+            Sélectionner un livreur
+        </h1>
+        <p class="lead text-muted">Commande #{{ order.id }}</p>
+    </div>
+    
+    <!-- Informations commande -->
+    <div class="order-info">
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-user me-2"></i>Client : {{ order.user.username }}</h6>
+                <p class="mb-1"><strong>Mode :</strong> {{ order.get_delivery_mode_display }}</p>
+                <p class="mb-1"><strong>Paiement :</strong> {{ order.get_preferred_payment_method_display }}</p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Total :</strong> {{ order.total|floatformat:2 }} €</p>
+                <p class="mb-1"><strong>Commission :</strong> {{ order.get_commission_payer_display }}</p>
+                {% if order.shipping_address %}
+                <p class="mb-0"><strong>Ville :</strong> {{ order.shipping_address.city }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <form method="post" id="courierForm">
+        {% csrf_token %}
+        
+        <!-- Option Marketplace -->
+        <div class="marketplace-option" onclick="selectCourier(this, 'marketplace')">
+            <h4 class="mb-3">
+                <i class="fas fa-bullhorn me-2"></i>
+                Publier sur le marketplace
+            </h4>
+            <p class="mb-3">
+                Laissez tous les livreurs disponibles voir cette course et la prendre
+            </p>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="badge bg-light text-dark fs-6 px-3 py-2 me-2">Plus de choix</div>
+                    <div class="badge bg-light text-dark fs-6 px-3 py-2 me-2">Acceptation rapide</div>
+                    <div class="badge bg-light text-dark fs-6 px-3 py-2">Commission ajustable</div>
+                </div>
+            </div>
+            <input type="radio" name="courier_id" value="marketplace" class="d-none" id="courier_marketplace">
+        </div>
+        
+        <!-- Livreurs disponibles -->
+        {% if available_couriers %}
+        <h5 class="mb-3">
+            <i class="fas fa-users me-2"></i>
+            Livreurs disponibles ({{ available_couriers.count }})
+        </h5>
+        
+        <div class="row">
+            {% for courier in available_couriers %}
+            <div class="col-md-6 mb-3">
+                <div class="courier-card" onclick="selectCourier(this, '{{ courier.id }}')">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            {% if courier.delivery_profile.user.profile.profile_picture %}
+                                <img src="{{ courier.delivery_profile.user.profile.profile_picture.url }}" 
+                                     class="courier-avatar" alt="{{ courier.username }}">
+                            {% else %}
+                                <div class="courier-avatar bg-secondary d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-user text-white"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ courier.username }}</h6>
+                            <div class="rating-stars mb-1">
+                                {% for i in "12345" %}
+                                    {% if i|add:0 <= courier.delivery_profile.rating %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="text-muted ms-1">({{ courier.delivery_profile.rating }}/5)</span>
+                            </div>
+                            <div class="d-flex align-items-center text-muted">
+                                {% if courier.delivery_profile.vehicle_type == 'bike' %}
+                                    <i class="fas fa-bicycle vehicle-icon text-success"></i>
+                                {% elif courier.delivery_profile.vehicle_type == 'motorbike' %}
+                                    <i class="fas fa-motorcycle vehicle-icon text-primary"></i>
+                                {% elif courier.delivery_profile.vehicle_type == 'car' %}
+                                    <i class="fas fa-car vehicle-icon text-info"></i>
+                                {% elif courier.delivery_profile.vehicle_type == 'van' %}
+                                    <i class="fas fa-truck vehicle-icon text-warning"></i>
+                                {% endif %}
+                                <span>{{ courier.delivery_profile.get_vehicle_type_display }}</span>
+                            </div>
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                {{ courier.delivery_profile.total_deliveries }} livraisons
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <div class="badge bg-primary">Disponible</div>
+                        </div>
+                    </div>
+                    <input type="radio" name="courier_id" value="{{ courier.id }}" class="d-none" id="courier_{{ courier.id }}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+            <h5 class="text-muted">Aucun livreur disponible actuellement</h5>
+            <p class="text-muted">Vous pouvez publier sur le marketplace ou livrer vous-même</p>
+        </div>
+        {% endif %}
+        
+        <!-- Instructions pour le livreur -->
+        <div class="mt-4">
+            <h6>
+                <i class="fas fa-clipboard-list me-2"></i>
+                Instructions pour le livreur (optionnel)
+            </h6>
+            <textarea name="vendor_instructions" class="form-control" rows="3" 
+                      placeholder="Instructions spéciales pour le livreur (ex: produits fragiles, horaires préférés...)"></textarea>
+        </div>
+        
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-success btn-lg px-5" id="submitBtn" disabled>
+                <i class="fas fa-paper-plane me-2"></i>
+                Assigner la livraison
+            </button>
+            <a href="{% url 'store:assign_delivery_choice' order.id %}" class="btn btn-outline-secondary btn-lg px-5 ms-3">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+function selectCourier(element, courierId) {
+    // Retirer la sélection précédente
+    document.querySelectorAll('.courier-card, .marketplace-option').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Sélectionner la nouvelle option
+    element.classList.add('selected');
+    document.getElementById('courier_' + courierId).checked = true;
+    
+    // Activer le bouton
+    document.getElementById('submitBtn').disabled = false;
+    
+    // Mettre à jour le texte du bouton
+    const submitBtn = document.getElementById('submitBtn');
+    if (courierId === 'marketplace') {
+        submitBtn.innerHTML = '<i class="fas fa-bullhorn me-2"></i>Publier sur marketplace';
+    } else {
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Assigner ce livreur';
+    }
+}
+</script>
+{% endblock %}

@@ -19,11 +19,13 @@ import base64
 from io import BytesIO
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from datetime import timedelta
 
 from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption, Discount,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
-    SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryProfile, DeliveryRating
+    SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryProfile, DeliveryRating,
+    DeliveryAssignment
 )
 from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm, CheckoutForm
 from marketing.models import PromoCode, LoyaltyPoint
@@ -490,6 +492,501 @@ def vendor_pending_orders(request):
     }
     
     return render(request, 'store/vendor_pending_orders.html', context)
+
+@login_required
+def assign_delivery_choice(request, order_id):
+    """Interface vendeur pour choisir le mode de livraison"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Vérifier que c'est bien une commande du vendeur
+    if not order.items.filter(product__seller=request.user).exists():
+        messages.error(request, "Cette commande ne vous appartient pas.")
+        return redirect('store:vendor_pending_orders')
+    
+    # Vérifier que la commande n'est pas déjà assignée
+    if hasattr(order, 'delivery_assignment'):
+        messages.info(request, "Cette commande a déjà été assignée.")
+        return redirect('store:vendor_pending_orders')
+    
+    if request.method == 'POST':
+        delivery_choice = request.POST.get('delivery_choice')
+        
+        if delivery_choice == 'self':
+            # Vendeur livre lui-même
+            order.status = 'processing'
+            order.save()
+            
+            # Créer l'assignation avec le vendeur comme livreur
+            DeliveryAssignment.objects.create(
+                order=order,
+                vendor=request.user,
+                delivery_person=request.user,  # Vendeur livre lui-même
+                commission_amount=0,  # Pas de commission si vendeur livre
+                commission_payer='vendor',
+                distance_km=0,
+                status='accepted',
+                assigned_at=timezone.now(),
+                accepted_at=timezone.now(),
+                expires_at=timezone.now() + timedelta(hours=24),
+                vendor_instructions="Livraison par le vendeur"
+            )
+            
+            # Notification client
+            Notification.objects.create(
+                user=order.user,
+                message=f"Votre commande #{order.id} sera livrée directement par le vendeur.",
+                notification_type='delivery_assigned',
+                related_object_id=order.id
+            )
+            
+            messages.success(request, f"Vous avez choisi de livrer la commande #{order.id} vous-même.")
+            return redirect('store:vendor_pending_orders')
+            
+        elif delivery_choice == 'courier':
+            # Assigner à un livreur
+            return redirect('store:select_delivery_person', order_id=order.id)
+    
+    # Calculer la distance approximative pour estimer la commission
+    distance_km = 5  # Distance par défaut, à calculer selon l'adresse
+    commission = distance_km * 2  # 2€ par km
+    
+    available_couriers = User.objects.filter(
+        user_type='delivery',
+        delivery_profile__is_available=True
+    ).count()
+    
+    return render(request, 'store/delivery_choice.html', {
+        'order': order,
+        'distance_km': distance_km,
+        'commission': commission,
+        'available_couriers': available_couriers
+    })
+
+@login_required
+def select_delivery_person(request, order_id):
+    """Sélection d'un livreur spécifique"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Vérifier que c'est bien une commande du vendeur
+    if not order.items.filter(product__seller=request.user).exists():
+        messages.error(request, "Cette commande ne vous appartient pas.")
+        return redirect('store:vendor_pending_orders')
+    
+    # Livreurs disponibles
+    available_couriers = User.objects.filter(
+        user_type='delivery',
+        delivery_profile__is_available=True
+    ).select_related('delivery_profile')
+    
+    if request.method == 'POST':
+        courier_id = request.POST.get('courier_id')
+        vendor_instructions = request.POST.get('vendor_instructions', '')
+        
+        if courier_id == 'marketplace':
+            # Publier sur le marketplace pour tous les livreurs
+            return redirect('store:publish_to_marketplace', order_id=order.id)
+        
+        if courier_id:
+            courier = get_object_or_404(User, id=courier_id, user_type='delivery')
+            
+            # Calculer la distance et commission
+            distance_km = 5  # À calculer selon l'adresse réelle
+            commission_amount = distance_km * 2  # 2€ par km
+            commission_payer = order.commission_payer
+            
+            # Créer l'assignation
+            assignment = DeliveryAssignment.objects.create(
+                order=order,
+                vendor=request.user,
+                delivery_person=courier,
+                commission_amount=commission_amount,
+                commission_payer=commission_payer,
+                distance_km=distance_km,
+                status='pending',
+                assigned_at=timezone.now(),
+                expires_at=timezone.now() + timedelta(hours=24),
+                vendor_instructions=vendor_instructions
+            )
+            
+            # Notification au livreur
+            Notification.objects.create(
+                user=courier,
+                message=f"Nouvelle course disponible ! Commande #{order.id} - {commission_amount}€ de commission",
+                notification_type='delivery_request',
+                related_object_id=assignment.id
+            )
+            
+            # Notification WebSocket
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'notifications_{courier.id}',
+                {
+                    'type': 'new_notification',
+                    'message': f"Nouvelle course #{order.id} - {commission_amount}€",
+                    'notification_type': 'delivery_request',
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+            
+            messages.success(request, f"Course assignée à {courier.username}. Il a 24h pour accepter.")
+            return redirect('store:vendor_pending_orders')
+    
+    return render(request, 'store/select_delivery_person.html', {
+        'order': order,
+        'available_couriers': available_couriers
+    })
+
+@login_required
+def publish_to_marketplace(request, order_id):
+    """Publier la course sur le marketplace pour tous les livreurs"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id)
+    
+    # Vérifier que c'est bien une commande du vendeur
+    if not order.items.filter(product__seller=request.user).exists():
+        messages.error(request, "Cette commande ne vous appartient pas.")
+        return redirect('store:vendor_pending_orders')
+    
+    if request.method == 'POST':
+        vendor_instructions = request.POST.get('vendor_instructions', '')
+        commission_bonus = float(request.POST.get('commission_bonus', 0))
+        
+        # Calculer la distance et commission
+        distance_km = 5  # À calculer selon l'adresse réelle
+        base_commission = distance_km * 2  # 2€ par km
+        total_commission = base_commission + commission_bonus
+        
+        # Créer l'assignation marketplace
+        assignment = DeliveryAssignment.objects.create(
+            order=order,
+            vendor=request.user,
+            delivery_person=None,  # Pas encore assigné
+            commission_amount=total_commission,
+            commission_payer=order.commission_payer,
+            distance_km=distance_km,
+            status='pending',
+            assigned_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(hours=24),
+            vendor_instructions=vendor_instructions
+        )
+        
+        # Notifier tous les livreurs disponibles
+        available_couriers = User.objects.filter(
+            user_type='delivery',
+            delivery_profile__is_available=True
+        )
+        
+        for courier in available_couriers:
+            Notification.objects.create(
+                user=courier,
+                message=f"Nouvelle course disponible ! #{order.id} - {total_commission}€ commission",
+                notification_type='marketplace_delivery',
+                related_object_id=assignment.id
+            )
+        
+        messages.success(request, f"Course publiée sur le marketplace avec {total_commission}€ de commission.")
+        return redirect('store:vendor_pending_orders')
+    
+    # Calculer commission de base
+    distance_km = 5
+    base_commission = distance_km * 2
+    
+    return render(request, 'store/publish_marketplace.html', {
+        'order': order,
+        'distance_km': distance_km,
+        'base_commission': base_commission
+    })
+
+@login_required
+def delivery_marketplace(request):
+    """Marketplace des courses pour les livreurs"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    # Courses disponibles (non assignées ou assignées mais pas acceptées)
+    available_assignments = DeliveryAssignment.objects.filter(
+        status='pending',
+        expires_at__gt=timezone.now()
+    ).select_related('order', 'vendor').order_by('-commission_amount')
+    
+    # Mes courses acceptées
+    my_assignments = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status__in=['accepted', 'picked_up', 'in_transit']
+    ).select_related('order', 'vendor').order_by('-accepted_at')
+    
+    return render(request, 'store/delivery_marketplace.html', {
+        'available_assignments': available_assignments,
+        'my_assignments': my_assignments
+    })
+
+@login_required
+def accept_delivery_assignment(request, assignment_id):
+    """Accepter une assignation de livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id)
+    
+    # Vérifier que l'assignation est encore disponible
+    if assignment.status != 'pending':
+        messages.error(request, "Cette course n'est plus disponible.")
+        return redirect('store:delivery_marketplace')
+    
+    if assignment.is_expired:
+        messages.error(request, "Cette course a expiré.")
+        return redirect('store:delivery_marketplace')
+    
+    # Vérifier que le livreur est disponible
+    if not request.user.delivery_profile.is_available:
+        messages.error(request, "Vous devez être disponible pour accepter une course.")
+        return redirect('store:delivery_marketplace')
+    
+    # Accepter l'assignation
+    assignment.delivery_person = request.user
+    assignment.status = 'accepted'
+    assignment.accepted_at = timezone.now()
+    assignment.save()
+    
+    # Mettre à jour le statut de la commande
+    assignment.order.status = 'processing'
+    assignment.order.save()
+    
+    # Marquer le livreur comme occupé
+    request.user.delivery_profile.is_available = False
+    request.user.delivery_profile.save()
+    
+    # Notifications
+    # Au vendeur
+    Notification.objects.create(
+        user=assignment.vendor,
+        message=f"Votre commande #{assignment.order.id} a été acceptée par {request.user.username}",
+        notification_type='delivery_accepted',
+        related_object_id=assignment.id
+    )
+    
+    # Au client
+    Notification.objects.create(
+        user=assignment.order.user,
+        message=f"Un livreur a accepté votre commande #{assignment.order.id}. Livraison en cours de préparation.",
+        notification_type='delivery_accepted',
+        related_object_id=assignment.order.id
+    )
+    
+    messages.success(request, f"Course acceptée ! Rendez-vous chez {assignment.vendor.username} pour récupérer la commande.")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def reject_delivery_assignment(request, assignment_id):
+    """Rejeter une assignation de livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id)
+    
+    if assignment.delivery_person != request.user:
+        messages.error(request, "Cette assignation ne vous concerne pas.")
+        return redirect('store:delivery_marketplace')
+    
+    # Rejeter l'assignation
+    assignment.delivery_person = None
+    assignment.status = 'pending'
+    assignment.accepted_at = None
+    assignment.save()
+    
+    # Notification au vendeur
+    Notification.objects.create(
+        user=assignment.vendor,
+        message=f"Le livreur a refusé la commande #{assignment.order.id}. Choisissez un autre livreur.",
+        notification_type='delivery_rejected',
+        related_object_id=assignment.id
+    )
+    
+    messages.info(request, "Course refusée.")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def mark_picked_up(request, assignment_id):
+    """Marquer comme récupéré chez le vendeur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id, delivery_person=request.user)
+    
+    if assignment.status != 'accepted':
+        messages.error(request, "Cette course n'est pas dans le bon statut.")
+        return redirect('store:delivery_marketplace')
+    
+    # Marquer comme récupéré
+    assignment.status = 'picked_up'
+    assignment.picked_up_at = timezone.now()
+    assignment.save()
+    
+    # Mettre à jour le statut de la commande
+    assignment.order.status = 'shipped'
+    assignment.order.save()
+    
+    # Notifications
+    Notification.objects.create(
+        user=assignment.order.user,
+        message=f"Votre commande #{assignment.order.id} a été récupérée et est en route !",
+        notification_type='order_shipped',
+        related_object_id=assignment.order.id
+    )
+    
+    Notification.objects.create(
+        user=assignment.vendor,
+        message=f"Commande #{assignment.order.id} récupérée par le livreur.",
+        notification_type='order_picked_up',
+        related_object_id=assignment.order.id
+    )
+    
+    messages.success(request, "Commande récupérée ! Direction chez le client.")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def complete_delivery_assignment(request, assignment_id):
+    """Marquer la livraison comme terminée"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id, delivery_person=request.user)
+    
+    if assignment.status != 'picked_up':
+        messages.error(request, "Vous devez d'abord récupérer la commande chez le vendeur.")
+        return redirect('store:delivery_marketplace')
+    
+    # Marquer comme livré
+    assignment.status = 'delivered'
+    assignment.delivered_at = timezone.now()
+    assignment.save()
+    
+    # Mettre à jour le statut de la commande
+    assignment.order.status = 'delivered'
+    assignment.order.save()
+    
+    # Marquer le livreur comme disponible
+    request.user.delivery_profile.is_available = True
+    request.user.delivery_profile.total_deliveries += 1
+    request.user.delivery_profile.save()
+    
+    # Notifications
+    Notification.objects.create(
+        user=assignment.order.user,
+        message=f"Votre commande #{assignment.order.id} a été livrée avec succès !",
+        notification_type='order_delivered',
+        related_object_id=assignment.order.id
+    )
+    
+    Notification.objects.create(
+        user=assignment.vendor,
+        message=f"Commande #{assignment.order.id} livrée avec succès par {request.user.username}.",
+        notification_type='delivery_completed',
+        related_object_id=assignment.order.id
+    )
+    
+    messages.success(request, f"Livraison terminée ! Commission de {assignment.commission_amount}€ ajoutée à vos gains.")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def delivery_profile_management(request):
+    """Gestion du profil livreur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    profile, created = DeliveryProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        # Mise à jour du statut de disponibilité
+        is_available = request.POST.get('is_available') == 'on'
+        profile.is_available = is_available
+        
+        # Mise à jour des autres champs
+        profile.phone_number = request.POST.get('phone_number', profile.phone_number)
+        profile.vehicle_type = request.POST.get('vehicle_type', profile.vehicle_type)
+        profile.license_number = request.POST.get('license_number', profile.license_number)
+        
+        profile.save()
+        
+        status_text = "disponible" if is_available else "indisponible"
+        messages.success(request, f"Profil mis à jour. Vous êtes maintenant {status_text}.")
+        return redirect('store:delivery_profile_management')
+    
+    # Statistiques du livreur
+    total_earnings = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status='delivered'
+    ).aggregate(total=models.Sum('commission_amount'))['total'] or 0
+    
+    pending_assignments = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status__in=['accepted', 'picked_up']
+    ).count()
+    
+    return render(request, 'store/delivery_profile.html', {
+        'profile': profile,
+        'total_earnings': total_earnings,
+        'pending_assignments': pending_assignments
+    })
+
+@login_required
+def cancel_delivery_assignment(request, order_id):
+    """Annuler une assignation et remettre en marketplace"""
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs.")
+        return redirect('store:home')
+    
+    order = get_object_or_404(Order, id=order_id)
+    
+    try:
+        assignment = DeliveryAssignment.objects.get(order=order, vendor=request.user)
+    except DeliveryAssignment.DoesNotExist:
+        messages.error(request, "Aucune assignation trouvée pour cette commande.")
+        return redirect('store:vendor_pending_orders')
+    
+    if assignment.status == 'delivered':
+        messages.error(request, "Impossible d'annuler une livraison terminée.")
+        return redirect('store:vendor_pending_orders')
+    
+    # Si un livreur était assigné, le libérer
+    if assignment.delivery_person:
+        assignment.delivery_person.delivery_profile.is_available = True
+        assignment.delivery_person.delivery_profile.save()
+        
+        # Notification au livreur
+        Notification.objects.create(
+            user=assignment.delivery_person,
+            message=f"La course #{order.id} a été annulée par le vendeur.",
+            notification_type='delivery_cancelled',
+            related_object_id=assignment.id
+        )
+    
+    # Supprimer l'assignation
+    assignment.delete()
+    
+    # Remettre la commande en attente
+    order.status = 'pending'
+    order.save()
+    
+    messages.success(request, f"Assignation annulée pour la commande #{order.id}.")
+    return redirect('store:vendor_pending_orders')
 
 # === Vues principales ===
 def home(request):

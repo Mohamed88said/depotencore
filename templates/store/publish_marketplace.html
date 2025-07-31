@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Publier sur le marketplace - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .marketplace-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    
+    .marketplace-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .commission-calculator {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .commission-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #10b981;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .bonus-slider {
+        margin: 1rem 0;
+    }
+    
+    .order-details {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 marketplace-container">
+    <div class="marketplace-header">
+        <h1 class="mb-3">
+            <i class="fas fa-bullhorn me-2"></i>
+            Publier sur le marketplace
+        </h1>
+        <p class="mb-0">Commande #{{ order.id }} - Laissez les livreurs se manifester</p>
+    </div>
+    
+    <!-- Détails de la commande -->
+    <div class="order-details">
+        <h5 class="mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            Détails de la course
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Client :</strong> {{ order.user.username }}</p>
+                <p><strong>Mode :</strong> {{ order.get_delivery_mode_display }}</p>
+                <p><strong>Paiement :</strong> {{ order.get_preferred_payment_method_display }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Distance :</strong> ~{{ distance_km }} km</p>
+                <p><strong>Commission de base :</strong> {{ base_commission }} €</p>
+                <p><strong>Payée par :</strong> {{ order.get_commission_payer_display }}</p>
+            </div>
+        </div>
+        {% if order.shipping_address %}
+        <div class="mt-3">
+            <strong>Adresse de livraison :</strong><br>
+            {{ order.shipping_address.street_address }}, {{ order.shipping_address.city }}
+        </div>
+        {% endif %}
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Calculateur de commission -->
+        <div class="commission-calculator">
+            <h5 class="mb-3">
+                <i class="fas fa-calculator me-2"></i>
+                Ajuster la commission
+            </h5>
+            
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <label for="commission_bonus" class="form-label">
+                        Bonus commission (pour attirer plus de livreurs)
+                    </label>
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range bonus-slider" 
+                               id="commission_bonus" name="commission_bonus" 
+                               min="0" max="10" step="0.5" value="0"
+                               oninput="updateCommission()">
+                        <span class="ms-3 fw-bold" id="bonusDisplay">+0 €</span>
+                    </div>
+                    <small class="text-muted">
+                        Commission de base : {{ base_commission }} € ({{ distance_km }} km × 2€)
+                    </small>
+                </div>
+                <div class="col-md-4">
+                    <div class="commission-display" id="totalCommission">
+                        {{ base_commission }} €
+                    </div>
+                    <small class="text-muted text-center d-block">Commission totale</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="mb-4">
+            <label for="vendor_instructions" class="form-label">
+                <i class="fas fa-clipboard-list me-2"></i>
+                Instructions pour le livreur
+            </label>
+            <textarea name="vendor_instructions" id="vendor_instructions" 
+                      class="form-control" rows="4"
+                      placeholder="Instructions détaillées pour le livreur (ex: produits fragiles, horaires de récupération, contact client...)"></textarea>
+        </div>
+        
+        <!-- Informations marketplace -->
+        <div class="alert alert-info">
+            <h6 class="alert-heading">
+                <i class="fas fa-lightbulb me-2"></i>
+                Comment fonctionne le marketplace
+            </h6>
+            <ul class="mb-0">
+                <li>Votre course sera visible par tous les livreurs disponibles</li>
+                <li>Le premier qui accepte récupère la course</li>
+                <li>Délai d'acceptation : 24 heures maximum</li>
+                <li>Si personne n'accepte, vous devrez livrer vous-même</li>
+                <li>Commission plus élevée = acceptation plus rapide</li>
+            </ul>
+        </div>
+        
+        <div class="text-center">
+            <button type="submit" class="btn btn-success btn-lg px-5">
+                <i class="fas fa-rocket me-2"></i>
+                Publier la course
+            </button>
+            <a href="{% url 'store:select_delivery_person' order.id %}" class="btn btn-outline-secondary btn-lg px-5 ms-3">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+const baseCommission = {{ base_commission }};
+
+function updateCommission() {
+    const bonus = parseFloat(document.getElementById('commission_bonus').value);
+    const total = baseCommission + bonus;
+    
+    document.getElementById('bonusDisplay').textContent = '+' + bonus.toFixed(1) + ' €';
+    document.getElementById('totalCommission').textContent = total.toFixed(1) + ' €';
+}
+</script>
+{% endblock %}

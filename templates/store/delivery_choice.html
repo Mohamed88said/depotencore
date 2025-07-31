@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Choisir le mode de livraison - Commande #{{ order.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delivery-choice-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .choice-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    
+    .choice-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .choice-card.selected {
+        border-color: #10b981;
+        background-color: rgba(16, 185, 129, 0.05);
+    }
+    
+    .choice-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .commission-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .order-summary {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .btn-choice {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 delivery-choice-container">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold">
+            <i class="fas fa-truck me-2"></i>
+            Mode de livraison
+        </h1>
+        <p class="lead text-muted">Commande #{{ order.id }} - Comment souhaitez-vous livrer ?</p>
+    </div>
+    
+    <!-- Résumé de la commande -->
+    <div class="order-summary">
+        <h5 class="mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            Résumé de la commande
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Client :</strong> {{ order.user.username }}</p>
+                <p><strong>Mode :</strong> {{ order.get_delivery_mode_display }}</p>
+                <p><strong>Paiement :</strong> {{ order.get_preferred_payment_method_display }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Total :</strong> {{ order.total|floatformat:2 }} €</p>
+                <p><strong>Articles :</strong> {{ order.items.count }}</p>
+                <p><strong>Commission :</strong> {{ order.get_commission_payer_display }}</p>
+            </div>
+        </div>
+        {% if order.delivery_mode == 'home' and order.shipping_address %}
+        <div class="mt-3">
+            <strong>Adresse de livraison :</strong><br>
+            {{ order.shipping_address.full_name }}<br>
+            {{ order.shipping_address.street_address }}<br>
+            {{ order.shipping_address.city }}, {{ order.shipping_address.postal_code }}
+            {% if order.shipping_address.phone_number %}
+                <br>Tél: {{ order.shipping_address.phone_number }}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Information commission -->
+    {% if order.delivery_mode == 'home' %}
+    <div class="commission-info">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="mb-2">
+                    <i class="fas fa-euro-sign me-2"></i>
+                    Information commission
+                </h5>
+                <p class="mb-0">
+                    Distance estimée : <strong>{{ distance_km }} km</strong><br>
+                    Commission livreur : <strong>{{ commission }} €</strong> (2€/km)<br>
+                    Payée par : <strong>{{ order.get_commission_payer_display }}</strong>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="badge bg-light text-dark fs-6 px-3 py-2">
+                    {{ available_couriers }} livreur{{ available_couriers|pluralize }} disponible{{ available_couriers|pluralize }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="row g-4">
+            <!-- Option 1: Livrer soi-même -->
+            <div class="col-md-6">
+                <div class="choice-card" onclick="selectChoice(this, 'self')">
+                    <div class="choice-icon text-primary">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <h4 class="mb-3">Je livre moi-même</h4>
+                    <p class="text-muted mb-3">
+                        Vous livrez directement la commande au client
+                    </p>
+                    <div class="benefits">
+                        <div class="badge bg-success mb-2">Aucune commission</div>
+                        <div class="badge bg-info mb-2">Contrôle total</div>
+                        <div class="badge bg-warning mb-2">Contact direct client</div>
+                    </div>
+                    <input type="radio" name="delivery_choice" value="self" class="d-none" id="choice_self">
+                </div>
+            </div>
+            
+            <!-- Option 2: Assigner un livreur -->
+            <div class="col-md-6">
+                <div class="choice-card" onclick="selectChoice(this, 'courier')">
+                    <div class="choice-icon text-success">
+                        <i class="fas fa-motorcycle"></i>
+                    </div>
+                    <h4 class="mb-3">Assigner un livreur</h4>
+                    <p class="text-muted mb-3">
+                        Un livreur professionnel s'occupe de la livraison
+                    </p>
+                    <div class="benefits">
+                        <div class="badge bg-primary mb-2">Gain de temps</div>
+                        <div class="badge bg-success mb-2">Service professionnel</div>
+                        <div class="badge bg-info mb-2">Suivi temps réel</div>
+                    </div>
+                    {% if order.delivery_mode == 'home' %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            Commission : {{ commission }} € 
+                            ({{ order.get_commission_payer_display }})
+                        </small>
+                    </div>
+                    {% endif %}
+                    <input type="radio" name="delivery_choice" value="courier" class="d-none" id="choice_courier">
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary btn-lg px-5" id="submitBtn" disabled>
+                <i class="fas fa-check me-2"></i>
+                Confirmer le choix
+            </button>
+            <a href="{% url 'store:vendor_pending_orders' %}" class="btn btn-outline-secondary btn-lg px-5 ms-3">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+function selectChoice(element, choice) {
+    // Retirer la sélection précédente
+    document.querySelectorAll('.choice-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Sélectionner la nouvelle option
+    element.classList.add('selected');
+    document.getElementById('choice_' + choice).checked = true;
+    
+    // Activer le bouton
+    document.getElementById('submitBtn').disabled = false;
+    
+    // Mettre à jour le texte du bouton
+    const submitBtn = document.getElementById('submitBtn');
+    if (choice === 'self') {
+        submitBtn.innerHTML = '<i class="fas fa-user me-2"></i>Je livre moi-même';
+    } else {
+        submitBtn.innerHTML = '<i class="fas fa-motorcycle me-2"></i>Choisir un livreur';
+    }
+}
+</script>
+{% endblock %}

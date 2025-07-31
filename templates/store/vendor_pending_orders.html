@@ -227,6 +227,38 @@
                             Annuler la commande
                         </button>
                     </div>
+                    
+                    {% if not order.delivery_assignment %}
+                        <a href="{% url 'store:assign_delivery_choice' order.id %}" 
+                           class="btn btn-primary">
+                            <i class="fas fa-truck me-1"></i>Choisir livraison
+                        </a>
+                    {% else %}
+                        {% with assignment=order.delivery_assignment %}
+                            {% if assignment.status == 'pending' %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-clock me-1"></i>En attente livreur
+                                </span>
+                                <a href="{% url 'store:cancel_delivery_assignment' order.id %}" 
+                                   class="btn btn-outline-danger btn-sm">
+                                    <i class="fas fa-times me-1"></i>Annuler
+                                </a>
+                            {% elif assignment.status == 'accepted' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-user me-1"></i>{{ assignment.delivery_person.username }}
+                                </span>
+                                <span class="badge bg-success">Accepté</span>
+                            {% elif assignment.status == 'picked_up' %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-truck me-1"></i>En livraison
+                                </span>
+                            {% elif assignment.status == 'delivered' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle me-1"></i>Livré
+                                </span>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
                 </div>
             </div>
         </div>

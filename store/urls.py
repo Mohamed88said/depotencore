@@ -94,6 +94,20 @@ urlpatterns = [
     path('delivery/qr/<int:order_id>/', views.view_qr_code, name='view_qr_code'),
     path('vendor/orders/pending/', views.vendor_pending_orders, name='vendor_pending_orders'),
     
+    # === URLs interface vendeur livraison ===
+    path('vendor/delivery/choice/<int:order_id>/', views.assign_delivery_choice, name='assign_delivery_choice'),
+    path('vendor/delivery/select/<int:order_id>/', views.select_delivery_person, name='select_delivery_person'),
+    path('vendor/delivery/marketplace/<int:order_id>/', views.publish_to_marketplace, name='publish_to_marketplace'),
+    path('vendor/delivery/cancel/<int:order_id>/', views.cancel_delivery_assignment, name='cancel_delivery_assignment'),
+    
+    # === URLs marketplace livreur ===
+    path('delivery/marketplace/', views.delivery_marketplace, name='delivery_marketplace'),
+    path('delivery/accept/<int:assignment_id>/', views.accept_delivery_assignment, name='accept_delivery_assignment'),
+    path('delivery/reject/<int:assignment_id>/', views.reject_delivery_assignment, name='reject_delivery_assignment'),
+    path('delivery/pickup/<int:assignment_id>/', views.mark_picked_up, name='mark_picked_up'),
+    path('delivery/complete/<int:assignment_id>/', views.complete_delivery_assignment, name='complete_delivery_assignment'),
+    path('delivery/profile/', views.delivery_profile_management, name='delivery_profile_management'),
+    
     # === URLs pour les livreurs ===
     path('delivery/dashboard/', views.delivery_dashboard, name='delivery_dashboard'),
     path('delivery/orders/', views.delivery_orders, name='delivery_orders'),

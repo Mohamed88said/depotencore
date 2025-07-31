@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mon profil livreur{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .status-toggle {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    
+    .availability-switch {
+        transform: scale(1.5);
+        margin: 0 1rem;
+    }
+    
+    .stats-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #3b82f6;
+    }
+    
+    .vehicle-selection {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .vehicle-option {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .vehicle-option:hover {
+        border-color: #3b82f6;
+    }
+    
+    .vehicle-option.selected {
+        border-color: #10b981;
+        background-color: rgba(16, 185, 129, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 profile-container">
+    <div class="profile-header">
+        <h1 class="mb-3">
+            <i class="fas fa-user-circle me-2"></i>
+            Mon profil livreur
+        </h1>
+        <p class="mb-0">{{ user.username }}</p>
+    </div>
+    
+    <!-- Statut de disponibilité -->
+    <div class="status-toggle">
+        <h5 class="mb-3">Statut de disponibilité</h5>
+        <form method="post" id="availabilityForm">
+            {% csrf_token %}
+            <div class="d-flex align-items-center justify-content-center">
+                <span class="me-3">Indisponible</span>
+                <div class="form-check form-switch">
+                    <input class="form-check-input availability-switch" type="checkbox" 
+                           name="is_available" id="is_available" 
+                           {% if profile.is_available %}checked{% endif %}
+                           onchange="toggleAvailability()">
+                </div>
+                <span class="ms-3">Disponible</span>
+            </div>
+            <div class="mt-2">
+                <span class="badge {% if profile.is_available %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                    {% if profile.is_available %}
+                        <i class="fas fa-check-circle me-1"></i>Vous êtes disponible pour de nouvelles courses
+                    {% else %}
+                        <i class="fas fa-pause-circle me-1"></i>Vous n'acceptez pas de nouvelles courses
+                    {% endif %}
+                </span>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stat-number">{{ profile.total_deliveries }}</div>
+                <div class="text-muted">Livraisons totales</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stat-number">{{ total_earnings|floatformat:0 }} €</div>
+                <div class="text-muted">Gains totaux</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stat-number">{{ profile.rating|floatformat:1 }}</div>
+                <div class="text-muted">Note moyenne</div>
+                <div class="rating-stars text-warning mt-1">
+                    {% for i in "12345" %}
+                        {% if i|add:0 <= profile.rating %}
+                            <i class="fas fa-star"></i>
+                        {% else %}
+                            <i class="far fa-star"></i>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informations du profil -->
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-id-card me-2"></i>
+                    Informations personnelles
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="phone_number" class="form-label">Numéro de téléphone</label>
+                        <input type="tel" class="form-control" id="phone_number" name="phone_number" 
+                               value="{{ profile.phone_number }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="license_number" class="form-label">Numéro de permis (optionnel)</label>
+                        <input type="text" class="form-control" id="license_number" name="license_number" 
+                               value="{{ profile.license_number }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Véhicule -->
+        <div class="vehicle-selection">
+            <h5 class="mb-3">
+                <i class="fas fa-motorcycle me-2"></i>
+                Type de véhicule
+            </h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="vehicle-option {% if profile.vehicle_type == 'bike' %}selected{% endif %}" 
+                         onclick="selectVehicle(this, 'bike')">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-bicycle fa-2x text-success me-3"></i>
+                            <div>
+                                <strong>Vélo</strong><br>
+                                <small class="text-muted">Écologique et rapide en ville</small>
+                            </div>
+                        </div>
+                        <input type="radio" name="vehicle_type" value="bike" class="d-none" 
+                               {% if profile.vehicle_type == 'bike' %}checked{% endif %}>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="vehicle-option {% if profile.vehicle_type == 'motorbike' %}selected{% endif %}" 
+                         onclick="selectVehicle(this, 'motorbike')">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-motorcycle fa-2x text-primary me-3"></i>
+                            <div>
+                                <strong>Moto</strong><br>
+                                <small class="text-muted">Rapide et maniable</small>
+                            </div>
+                        </div>
+                        <input type="radio" name="vehicle_type" value="motorbike" class="d-none" 
+                               {% if profile.vehicle_type == 'motorbike' %}checked{% endif %}>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="vehicle-option {% if profile.vehicle_type == 'car' %}selected{% endif %}" 
+                         onclick="selectVehicle(this, 'car')">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-car fa-2x text-info me-3"></i>
+                            <div>
+                                <strong>Voiture</strong><br>
+                                <small class="text-muted">Confortable et sécurisé</small>
+                            </div>
+                        </div>
+                        <input type="radio" name="vehicle_type" value="car" class="d-none" 
+                               {% if profile.vehicle_type == 'car' %}checked{% endif %}>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="vehicle-option {% if profile.vehicle_type == 'van' %}selected{% endif %}" 
+                         onclick="selectVehicle(this, 'van')">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-truck fa-2x text-warning me-3"></i>
+                            <div>
+                                <strong>Camionnette</strong><br>
+                                <small class="text-muted">Pour gros volumes</small>
+                            </div>
+                        </div>
+                        <input type="radio" name="vehicle_type" value="van" class="d-none" 
+                               {% if profile.vehicle_type == 'van' %}checked{% endif %}>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5">
+                <i class="fas fa-save me-2"></i>
+                Enregistrer les modifications
+            </button>
+            <a href="{% url 'store:delivery_marketplace' %}" class="btn btn-outline-secondary btn-lg px-5 ms-3">
+                <i class="fas fa-store me-2"></i>
+                Voir le marketplace
+            </a>
+        </div>
+    </form>
+    
+    <!-- Livraisons en cours -->
+    {% if pending_assignments > 0 %}
+    <div class="alert alert-info mt-4">
+        <h6 class="alert-heading">
+            <i class="fas fa-info-circle me-2"></i>
+            Livraisons en cours
+        </h6>
+        <p class="mb-0">
+            Vous avez {{ pending_assignments }} livraison{{ pending_assignments|pluralize }} en cours. 
+            <a href="{% url 'store:delivery_marketplace' %}#my-deliveries" class="alert-link">Voir mes livraisons</a>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleAvailability() {
+    document.getElementById('availabilityForm').submit();
+}
+
+function selectVehicle(element, vehicleType) {
+    // Retirer la sélection précédente
+    document.querySelectorAll('.vehicle-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Sélectionner la nouvelle option
+    element.classList.add('selected');
+    document.querySelector(`input[value="${vehicleType}"]`).checked = true;
+}
+</script>
+{% endblock %}

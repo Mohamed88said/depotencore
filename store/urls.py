@@ -88,4 +88,13 @@ urlpatterns = [
     
     # Profil vendeur (modification)
     path('seller-profile/', views.seller_profile, name='seller_profile'),
+    
+    # === URLs pour les livreurs ===
+    path('delivery/dashboard/', views.delivery_dashboard, name='delivery_dashboard'),
+    path('delivery/orders/', views.delivery_orders, name='delivery_orders'),
+    path('delivery/accept/<int:order_id>/', views.accept_delivery, name='accept_delivery'),
+    path('delivery/start/<int:order_id>/', views.start_delivery, name='start_delivery'),
+    path('delivery/complete/<int:order_id>/', views.complete_delivery, name='complete_delivery'),
+    path('delivery/update-location/', views.update_delivery_location, name='update_delivery_location'),
+    path('delivery/profile/', views.delivery_profile, name='delivery_profile'),
 ]

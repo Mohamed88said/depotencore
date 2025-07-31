@@ -165,3 +165,37 @@ class DeliveryLocationAdmin(admin.ModelAdmin):
     list_display = ['user_location', 'contact_phone', 'is_default']
     list_filter = ['is_default']
     search_fields = ['user_location__user__username', 'contact_phone']
+
+@admin.register(DeliveryProfile, site=admin_site)
+class DeliveryProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'phone_number', 'vehicle_type', 'is_available', 'rating', 'total_deliveries']
+    list_filter = ['vehicle_type', 'is_available', 'created_at']
+    search_fields = ['user__username', 'phone_number']
+    readonly_fields = ['rating', 'total_deliveries', 'last_location_update']
+    
+    fieldsets = (
+        ('Informations personnelles', {
+            'fields': ('user', 'phone_number')
+        }),
+        ('Véhicule', {
+            'fields': ('vehicle_type', 'license_number')
+        }),
+        ('Statut', {
+            'fields': ('is_available',)
+        }),
+        ('Localisation', {
+            'fields': ('current_latitude', 'current_longitude', 'last_location_update'),
+            'classes': ('collapse',)
+        }),
+        ('Statistiques', {
+            'fields': ('rating', 'total_deliveries'),
+            'classes': ('collapse',)
+        })
+    )
+
+@admin.register(DeliveryRating, site=admin_site)
+class DeliveryRatingAdmin(admin.ModelAdmin):
+    list_display = ['delivery_person', 'customer', 'order', 'rating', 'created_at']
+    list_filter = ['rating', 'created_at']
+    search_fields = ['delivery_person__username', 'customer__username']
+    readonly_fields = ['created_at']

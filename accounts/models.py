@@ -5,6 +5,7 @@ class CustomUser(AbstractUser):
     USER_TYPE_CHOICES = (
         ('buyer', 'Acheteur'),
         ('seller', 'Vendeur'),
+        ('delivery', 'Livreur'),
     )
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='buyer')
     email = models.EmailField(unique=True)

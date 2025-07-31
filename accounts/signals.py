@@ -7,3 +7,8 @@ from .models import CustomUser, Profile
 def create_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
+        
+        # Créer un profil livreur si c'est un livreur
+        if instance.user_type == 'delivery':
+            from store.models import DeliveryProfile
+            DeliveryProfile.objects.create(user=instance)

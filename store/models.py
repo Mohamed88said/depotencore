@@ -210,6 +210,7 @@ class Order(models.Model):
         ('pending', 'En attente'),
         ('processing', 'En cours de traitement'),
         ('shipped', 'Expédié'),
+        ('out_for_delivery', 'En cours de livraison'),
         ('delivered', 'Livré'),
         ('cancelled', 'Annulé'),
     ]
@@ -239,6 +240,18 @@ class Order(models.Model):
     longitude = models.FloatField(null=True, blank=True)
     location_description = models.TextField(blank=True, null=True)
 
+    # Livreur assigné
+    delivery_person = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='delivery_orders',
+        limit_choices_to={'user_type': 'delivery'}
+    )
+    delivery_assigned_at = models.DateTimeField(null=True, blank=True)
+    delivery_started_at = models.DateTimeField(null=True, blank=True)
+    delivery_completed_at = models.DateTimeField(null=True, blank=True)
     class Meta:
         verbose_name = "Commande"
         verbose_name_plural = "Commandes"
@@ -247,6 +260,23 @@ class Order(models.Model):
     def __str__(self):
         return f"Commande {self.id} par {self.user.username}"
 
+    @property
+    def can_assign_delivery(self):
+        """Vérifie si la commande peut être assignée à un livreur"""
+        return self.status in ['processing', 'shipped'] and not self.delivery_person
+    
+    @property
+    def delivery_status(self):
+        """Retourne le statut de livraison"""
+        if not self.delivery_person:
+            return "Non assigné"
+        elif self.status == 'delivered':
+            return "Livré"
+        elif self.delivery_started_at:
+            return "En cours de livraison"
+        elif self.delivery_assigned_at:
+            return "Assigné"
+        return "En attente"
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -411,6 +441,76 @@ class SellerProfile(models.Model):
 
     def __str__(self):
         return f"Profil de {self.user.username}"
+
+class DeliveryProfile(models.Model):
+    """Profil spécifique aux livreurs"""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='delivery_profile',
+        limit_choices_to={'user_type': 'delivery'}
+    )
+    phone_number = models.CharField(max_length=20, verbose_name="Numéro de téléphone")
+    vehicle_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('bike', 'Vélo'),
+            ('motorbike', 'Moto'),
+            ('car', 'Voiture'),
+            ('van', 'Camionnette'),
+        ],
+        verbose_name="Type de véhicule"
+    )
+    license_number = models.CharField(max_length=50, blank=True, verbose_name="Numéro de permis")
+    is_available = models.BooleanField(default=True, verbose_name="Disponible")
+    current_latitude = models.FloatField(null=True, blank=True)
+    current_longitude = models.FloatField(null=True, blank=True)
+    last_location_update = models.DateTimeField(null=True, blank=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0, verbose_name="Note moyenne")
+    total_deliveries = models.PositiveIntegerField(default=0, verbose_name="Nombre de livraisons")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Profil livreur"
+        verbose_name_plural = "Profils livreurs"
+    
+    def __str__(self):
+        return f"Livreur {self.user.username}"
+    
+    def update_location(self, latitude, longitude):
+        """Met à jour la position du livreur"""
+        self.current_latitude = latitude
+        self.current_longitude = longitude
+        self.last_location_update = timezone.now()
+        self.save(update_fields=['current_latitude', 'current_longitude', 'last_location_update'])
+
+class DeliveryRating(models.Model):
+    """Évaluation des livreurs par les clients"""
+    delivery_person = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='delivery_ratings'
+    )
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='given_delivery_ratings'
+    )
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='delivery_rating')
+    rating = models.PositiveIntegerField(
+        choices=[(i, i) for i in range(1, 6)],
+        verbose_name="Note"
+    )
+    comment = models.TextField(blank=True, verbose_name="Commentaire")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Évaluation livreur"
+        verbose_name_plural = "Évaluations livreurs"
+        unique_together = ['delivery_person', 'customer', 'order']
+    
+    def __str__(self):
+        return f"Note {self.rating}/5 pour {self.delivery_person.username}"
 
 # === Modèle Subscription ===
 class Subscription(models.Model):

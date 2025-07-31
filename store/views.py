@@ -20,7 +20,7 @@ from asgiref.sync import async_to_sync
 from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
-    SellerRating, SellerProfile, Subscription
+    SellerRating, SellerProfile, Subscription, DeliveryProfile, DeliveryRating
 )
 from .forms import ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm, CheckoutForm
 from marketing.models import PromoCode, LoyaltyPoint

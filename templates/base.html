@@ -109,6 +109,8 @@
                                 <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">Mon profil</a></li>
                                 {% if user.user_type == 'seller' %}
                                 <li><a class="dropdown-item" href="{% url 'dashboard:overview' %}">Tableau de bord</a></li>
+                                {% elif user.user_type == 'delivery' %}
+                                <li><a class="dropdown-item" href="{% url 'store:delivery_dashboard' %}">Tableau de bord livreur</a></li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="{% url 'account_logout' %}">Déconnexion</a></li>

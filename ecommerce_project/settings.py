@@ -111,35 +111,27 @@ WHITENOISE_MIMETYPES = {
 WHITENOISE_MAX_AGE = 31536000  # 1 an pour les fichiers statiques
 
 # Configuration de sécurité pour les cookies
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    CSRF_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_HTTPONLY = True
-else:
-    # Configuration pour développement
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-    CSRF_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_HTTPONLY = True
-
-# Configuration des en-têtes de sécurité
-SECURE_CONTENT_TYPE_NOSNIFF = True
+# Configuration de sécurité
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Configuration CSP pour remplacer X-Frame-Options
-SECURE_CONTENT_SECURITY_POLICY = {
-    'frame-ancestors': ["'self'"],
-    'default-src': ["'self'"],
-    'script-src': ["'self'", "'unsafe-inline'", "https://js.stripe.com", "https://www.paypal.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
-    'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
-    'font-src': ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-    'img-src': ["'self'", "data:", "https:", "http:"],
-    'connect-src': ["'self'", "https://api.stripe.com", "https://www.paypal.com", "wss:", "ws:"],
-}
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://js.stripe.com", "https://www.paypal.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://cdnjs.cloudflare.com")
+CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com")
+CSP_IMG_SRC = ("'self'", "data:", "https:", "http:")
+CSP_CONNECT_SRC = ("'self'", "https://api.stripe.com", "https://www.paypal.com", "wss:", "ws:")
+CSP_FRAME_ANCESTORS = ("'self'",)
 
-# Configuration WhiteNoise pour ajouter charset=utf-8 aux fichiers JavaScript
+# Configuration WhiteNoise
 WHITENOISE_MIMETYPES = {
     '.js': 'text/javascript; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
@@ -149,8 +141,18 @@ WHITENOISE_MIMETYPES = {
     '.eot': 'application/vnd.ms-fontobject',
 }
 
-# Configuration des en-têtes de cache
-WHITENOISE_MAX_AGE = 31536000  # 1 an pour les fichiers statiques
+WHITENOISE_MAX_AGE = 31536000  # 1 an
+
+# Configuration des cookies sécurisés
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_HTTPONLY = True
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

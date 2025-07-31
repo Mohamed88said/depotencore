@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gestion des notifications
     const notificationBadge = document.querySelector('.pulse');
     if (notificationBadge) {
-        notificationBadge.classList.add('animating');
+        notificationBadge.classList.add('animating'); /* Marquer comme en animation */
         setInterval(() => {
             notificationBadge.style.transform = 'scale(1.1)';
             setTimeout(() => {
@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Nettoyer will-change après l'animation
         setTimeout(() => {
             notificationBadge.classList.remove('animating');
+            notificationBadge.style.willChange = 'auto'; /* Nettoyer will-change */
         }, 5000);
     }
 
@@ -203,7 +204,8 @@ function getCookie(name) {
             }
         }
     }
-    return cookieValue;
+    will-change: transform, opacity; /* Optimisation GPU */
 }
 
-const csrftoken = getCookie('csrftoken');
+.notification-item:not(.animating) {
+}

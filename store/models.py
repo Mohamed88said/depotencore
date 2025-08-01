@@ -4,135 +4,35 @@ from django.utils import timezone
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.urls import reverse
 from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
 import os
 import uuid
 from datetime import timedelta
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 # === Modèle Category ===
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Catégorie"
         verbose_name_plural = "Catégories"
+        ordering = ['name']
 
     def __str__(self):
         return self.name
 
-# === Modèle SellerStats ===
-class SellerStats(models.Model):
-    """Statistiques du vendeur mises à jour en temps réel"""
-    seller = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller_stats')
-    
-    # Statistiques de vente
-    total_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_orders = models.PositiveIntegerField(default=0)
-    total_products_sold = models.PositiveIntegerField(default=0)
-    
-    # Statistiques produits
-    total_products = models.PositiveIntegerField(default=0)
-    active_products = models.PositiveIntegerField(default=0)
-    out_of_stock_products = models.PositiveIntegerField(default=0)
-    
-    # Statistiques clients
-    total_customers = models.PositiveIntegerField(default=0)
-    repeat_customers = models.PositiveIntegerField(default=0)
-    
-    # Évaluations
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
-    total_reviews = models.PositiveIntegerField(default=0)
-    
-    # Métadonnées
-    last_updated = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Statistiques vendeur"
-        verbose_name_plural = "Statistiques vendeurs"
-    
-    def __str__(self):
-        return f"Stats de {self.seller.username}"
-    
-    def update_stats(self):
-        """Met à jour toutes les statistiques"""
-        from django.db.models import Sum, Count, Avg
-        
-        # Statistiques de vente
-        sales_data = OrderItem.objects.filter(
-            product__seller=self.seller,
-            order__status='delivered'
-        ).aggregate(
-            total_sales=Sum('price'),
-            total_products_sold=Sum('quantity')
-        )
-        
-        self.total_sales = sales_data['total_sales'] or 0
-        self.total_products_sold = sales_data['total_products_sold'] or 0
-        
-        # Nombre de commandes
-        self.total_orders = Order.objects.filter(
-            items__product__seller=self.seller
-        ).distinct().count()
-        
-        # Statistiques produits
-        products = Product.objects.filter(seller=self.seller)
-        self.total_products = products.count()
-        self.active_products = products.filter(
-            is_sold=False,
-            sold_out=False,
-            stock__gt=0
-        ).count()
-        self.out_of_stock_products = products.filter(
-            models.Q(stock=0) | models.Q(sold_out=True)
-        ).count()
-        
-        # Clients uniques
-        self.total_customers = Order.objects.filter(
-            items__product__seller=self.seller
-        ).values('user').distinct().count()
-        
-        # Évaluations
-        ratings = SellerRating.objects.filter(seller=self.seller)
-        if ratings.exists():
-            self.average_rating = ratings.aggregate(avg=Avg('rating'))['avg'] or 0
-            self.total_reviews = ratings.count()
-        
-        self.save()
+    def get_absolute_url(self):
+        return reverse('store:category_products', kwargs={'slug': self.slug})
 
-# === Modèle Discount ===
-class Discount(models.Model):
-    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='discounts')
-    percentage = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="Pourcentage de réduction (0-100)"
-    )
-    start_date = models.DateTimeField(help_text="Date de début de la réduction")
-    end_date = models.DateTimeField(help_text="Date de fin de la réduction")
-    is_active = models.BooleanField(default=True, help_text="Indique si la réduction est active")
-
-    class Meta:
-        verbose_name = "Réduction"
-        verbose_name_plural = "Réductions"
-        ordering = ['-start_date']
-
-    def clean(self):
-        if self.start_date and self.end_date and self.start_date >= self.end_date:
-            raise ValidationError("La date de fin doit être postérieure à la date de début.")
-        if self.percentage <= 0 or self.percentage > 100:
-            raise ValidationError("Le pourcentage de réduction doit être entre 0 et 100.")
-        super().clean()
-
-    def __str__(self):
-        return f"Réduction {self.percentage}% sur {self.product.name}"
+    @property
+    def product_count(self):
+        return self.products.filter(is_active=True, stock__gt=0).count()
 
 # === Modèle Product ===
 class Product(models.Model):
@@ -149,73 +49,226 @@ class Product(models.Model):
         ('Custom', 'Taille personnalisée'),
     ]
 
+    CONDITION_CHOICES = [
+        ('new', 'Neuf'),
+        ('like_new', 'Comme neuf'),
+        ('good', 'Bon état'),
+        ('fair', 'État correct'),
+        ('poor', 'Mauvais état'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', 'Brouillon'),
+        ('pending', 'En attente de modération'),
+        ('active', 'Actif'),
+        ('inactive', 'Inactif'),
+        ('rejected', 'Rejeté'),
+    ]
+
+    # Informations de base
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='products')
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    name = models.CharField(max_length=255)
-    description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.PositiveIntegerField()
-    image1 = models.ImageField(upload_to='products/', blank=True, null=True)
-    image2 = models.ImageField(upload_to='products/', blank=True, null=True)
-    image3 = models.ImageField(upload_to='products/', blank=True, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    
+    # Détails produit
+    name = models.CharField(max_length=255, verbose_name="Nom du produit")
+    description = models.TextField(verbose_name="Description")
+    short_description = models.CharField(max_length=500, blank=True, verbose_name="Description courte")
+    
+    # Prix et stock
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prix")
+    compare_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Prix de comparaison")
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name="Prix de revient")
+    stock = models.PositiveIntegerField(verbose_name="Stock")
+    low_stock_threshold = models.PositiveIntegerField(default=5, verbose_name="Seuil stock faible")
+    
+    # Images
+    image1 = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Image principale")
+    image2 = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Image 2")
+    image3 = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Image 3")
+    image4 = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Image 4")
+    image5 = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Image 5")
+    
+    # Attributs produit
+    size = models.CharField(max_length=20, choices=SIZE_CHOICES, blank=True, null=True, verbose_name="Taille")
+    brand = models.CharField(max_length=100, blank=True, null=True, verbose_name="Marque")
+    color = models.CharField(max_length=50, blank=True, null=True, verbose_name="Couleur")
+    material = models.CharField(max_length=100, blank=True, null=True, verbose_name="Matériau")
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='new', verbose_name="État")
+    
+    # Dimensions et poids
+    weight = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True, verbose_name="Poids (kg)")
+    length = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True, verbose_name="Longueur (cm)")
+    width = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True, verbose_name="Largeur (cm)")
+    height = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True, verbose_name="Hauteur (cm)")
+    
+    # SEO et référencement
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+    meta_title = models.CharField(max_length=255, blank=True, verbose_name="Titre SEO")
+    meta_description = models.TextField(max_length=500, blank=True, verbose_name="Description SEO")
+    tags = models.CharField(max_length=500, blank=True, verbose_name="Tags (séparés par des virgules)")
+    
+    # Statut et modération
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Statut")
+    is_featured = models.BooleanField(default=False, verbose_name="Produit vedette")
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    
+    # Statistiques
+    views = models.PositiveIntegerField(default=0, verbose_name="Vues")
+    sales_count = models.PositiveIntegerField(default=0, verbose_name="Nombre de ventes")
+    favorites_count = models.PositiveIntegerField(default=0, verbose_name="Nombre de favoris")
+    
+    # Dates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    views = models.PositiveIntegerField(default=0)
-    sales_count = models.PositiveIntegerField(default=0, help_text="Nombre total d'unités vendues")
-    is_sold = models.BooleanField(default=False)
-    sold_out = models.BooleanField(default=False)
-    size = models.CharField(max_length=20, choices=SIZE_CHOICES, blank=True, null=True)
-    brand = models.CharField(max_length=100, blank=True, null=True)
-    color = models.CharField(max_length=50, blank=True, null=True)
-    material = models.CharField(max_length=100, blank=True, null=True)
+    published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Produit"
         verbose_name_plural = "Produits"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['seller', 'status']),
+            models.Index(fields=['category', 'is_active']),
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self):
         return self.name
 
-    @property
-    def discounted_price(self):
-        current_time = timezone.now()
-        active_discount = self.discounts.filter(
-            is_active=True, 
-            start_date__lte=current_time, 
-            end_date__gte=current_time
-        ).order_by('-percentage').first()
+    def save(self, *args, **kwargs):
+        # Générer le slug automatiquement
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
         
-        if active_discount:
-            discount_amount = self.price * (active_discount.percentage / Decimal('100'))
-            return self.price - discount_amount
-        return self.price
+        # Définir la date de publication
+        if self.status == 'active' and not self.published_at:
+            self.published_at = timezone.now()
+        
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('store:product_detail', kwargs={'slug': self.slug})
 
     @property
-    def active_discount_percentage(self):
-        current_time = timezone.now()
-        active_discount = self.discounts.filter(
-            is_active=True, 
-            start_date__lte=current_time, 
-            end_date__gte=current_time
-        ).order_by('-percentage').first()
-        return active_discount.percentage if active_discount else 0
+    def is_in_stock(self):
+        return self.stock > 0 and self.is_active
 
     @property
-    def is_sold_out(self):
-        return self.stock == 0 or self.is_sold or self.sold_out
+    def is_low_stock(self):
+        return self.stock <= self.low_stock_threshold
+
+    @property
+    def discount_percentage(self):
+        if self.compare_price and self.compare_price > self.price:
+            return round(((self.compare_price - self.price) / self.compare_price) * 100, 1)
+        return 0
+
+    @property
+    def profit_margin(self):
+        if self.cost_price:
+            return round(((self.price - self.cost_price) / self.price) * 100, 1)
+        return 0
 
     @property
     def average_rating(self):
-        reviews = self.reviews.all()
+        reviews = self.reviews.filter(is_approved=True)
         if reviews.exists():
             return round(sum(review.rating for review in reviews) / reviews.count(), 1)
         return 0
 
-# === Modèles Cart et CartItem ===
+    @property
+    def review_count(self):
+        return self.reviews.filter(is_approved=True).count()
+
+    @property
+    def main_image(self):
+        return self.image1 or self.image2 or self.image3 or self.image4 or self.image5
+
+    def get_all_images(self):
+        images = []
+        for i in range(1, 6):
+            image = getattr(self, f'image{i}')
+            if image:
+                images.append(image)
+        return images
+
+    def increment_views(self):
+        self.views += 1
+        self.save(update_fields=['views'])
+
+    def can_be_edited_by(self, user):
+        return self.seller == user or user.is_staff
+
+# === Modèle ProductImage (pour plus de flexibilité) ===
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='additional_images')
+    image = models.ImageField(upload_to='products/additional/')
+    alt_text = models.CharField(max_length=255, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"Image pour {self.product.name}"
+
+# === Modèle ProductVariant (pour les variantes) ===
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    name = models.CharField(max_length=100, verbose_name="Nom de la variante")
+    sku = models.CharField(max_length=100, unique=True, verbose_name="SKU")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prix")
+    stock = models.PositiveIntegerField(verbose_name="Stock")
+    size = models.CharField(max_length=20, choices=Product.SIZE_CHOICES, blank=True)
+    color = models.CharField(max_length=50, blank=True)
+    image = models.ImageField(upload_to='products/variants/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Variante de produit"
+        verbose_name_plural = "Variantes de produits"
+        unique_together = ['product', 'name']
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name}"
+
+# === Modèle ProductModeration ===
+class ProductModeration(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('approved', 'Approuvé'),
+        ('rejected', 'Rejeté'),
+        ('changes_requested', 'Modifications demandées'),
+    ]
+
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='moderation')
+    moderator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='moderated_products')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reason = models.TextField(blank=True, verbose_name="Raison/Commentaires")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Modération de produit"
+        verbose_name_plural = "Modérations de produits"
+
+    def __str__(self):
+        return f"Modération {self.product.name} - {self.status}"
+
+# === Modèles existants (Cart, Order, etc.) ===
 class Cart(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Panier"
@@ -235,176 +288,125 @@ class Cart(models.Model):
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Article de panier"
         verbose_name_plural = "Articles de panier"
-        unique_together = ('cart', 'product')
+        unique_together = ('cart', 'product', 'variant')
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 
     @property
+    def unit_price(self):
+        return self.variant.price if self.variant else self.product.price
+
+    @property
     def subtotal(self):
-        return self.quantity * self.product.discounted_price
+        return self.quantity * self.unit_price
 
-# === Modèle ShippingOption ===
-class ShippingOption(models.Model):
-    name = models.CharField(max_length=100)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
-    estimated_days = models.PositiveIntegerField()
-    is_active = models.BooleanField(default=True)
-    description = models.TextField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Option de livraison"
-        verbose_name_plural = "Options de livraison"
-
-    def __str__(self):
-        return f"{self.name} - {self.cost}€ ({self.estimated_days} jours)"
-
-# === Modèle Address ===
-class Address(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='addresses')
-    full_name = models.CharField(max_length=100)
-    street_address = models.CharField(max_length=255)
-    city = models.CharField(max_length=100)
-    postal_code = models.CharField(max_length=20)
-    country = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=20, blank=True)
-    is_default = models.BooleanField(default=False)
-
-    class Meta:
-        verbose_name = "Adresse"
-        verbose_name_plural = "Adresses"
-        ordering = ['-is_default']
-
-    def __str__(self):
-        return f"{self.full_name}, {self.street_address}, {self.city}"
-
-    def save(self, *args, **kwargs):
-        if self.is_default:
-            Address.objects.filter(user=self.user, is_default=True).exclude(id=self.id).update(is_default=False)
-        super().save(*args, **kwargs)
-
-# === Modèles Order et OrderItem ===
+# === Modèle Order ===
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'En attente'),
-        ('processing', 'En cours de traitement'),
-        ('shipped', 'Expédié'),
-        ('out_for_delivery', 'En cours de livraison'),
-        ('delivered', 'Livré'),
-        ('cancelled', 'Annulé'),
+        ('confirmed', 'Confirmée'),
+        ('processing', 'En préparation'),
+        ('shipped', 'Expédiée'),
+        ('delivered', 'Livrée'),
+        ('cancelled', 'Annulée'),
+        ('refunded', 'Remboursée'),
     ]
-    PAYMENT_METHODS = [
-        ('cod', 'Paiement à la livraison'),
-    ]
-    
+
+    # Informations de base
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')
-    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders_sold')
+    order_number = models.CharField(max_length=20, unique=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Montants
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2)
-    shipping_address = models.ForeignKey('Address', on_delete=models.SET_NULL, null=True, blank=True)
-    shipping_option = models.ForeignKey('ShippingOption', on_delete=models.SET_NULL, null=True, blank=True)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
+    # Dates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cod')
-    charge_id = models.CharField(max_length=100, null=True, blank=True)
-    
-    # Géolocalisation
-    latitude = models.FloatField(null=True, blank=True)
-    longitude = models.FloatField(null=True, blank=True)
-    location_description = models.TextField(blank=True, null=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
 
-    # Livreur assigné
-    delivery_person = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='delivery_orders',
-        limit_choices_to={'user_type': 'delivery'}
-    )
-    delivery_assigned_at = models.DateTimeField(null=True, blank=True)
-    delivery_started_at = models.DateTimeField(null=True, blank=True)
-    delivery_completed_at = models.DateTimeField(null=True, blank=True)
-    
-    def get_payment_method_display_custom(self):
-        """Affichage personnalisé pour la méthode de paiement"""
-        if self.payment_method == 'cod':
-            return 'Paiement à la livraison'
-        return self.get_payment_method_display()
-    
     class Meta:
         verbose_name = "Commande"
         verbose_name_plural = "Commandes"
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Commande {self.id} par {self.user.username}"
+        return f"Commande {self.order_number}"
 
-    # Nouveaux champs pour le système QR
-    delivery_mode = models.CharField(
-        max_length=20,
-        choices=[
-            ('home', 'Livraison à domicile'),
-            ('pickup', 'Retrait en boutique')
-        ],
-        default='home'
-    )
-    preferred_payment_method = models.CharField(
-        max_length=20,
-        choices=[
-            ('card', 'Carte bancaire'),
-            ('paypal', 'PayPal'),
-            ('cash', 'Espèces')
-        ],
-        default='cash'
-    )
-    commission_payer = models.CharField(
-        max_length=20,
-        choices=[
-            ('vendor', 'Vendeur paie la commission'),
-            ('customer', 'Client paie la commission')
-        ],
-        default='customer'
-    )
+    def save(self, *args, **kwargs):
+        if not self.order_number:
+            self.order_number = self.generate_order_number()
+        super().save(*args, **kwargs)
 
-    @property
-    def can_assign_delivery(self):
-        """Vérifie si la commande peut être assignée à un livreur"""
-        return self.status in ['processing', 'shipped'] and not self.delivery_person
-    
-    @property
-    def delivery_status(self):
-        """Retourne le statut de livraison"""
-        if not self.delivery_person:
-            return "Non assigné"
-        elif self.status == 'delivered':
-            return "Livré"
-        elif self.delivery_started_at:
-            return "En cours de livraison"
-        elif self.delivery_assigned_at:
-            return "Assigné"
-        return "En attente"
+    def generate_order_number(self):
+        import random
+        import string
+        while True:
+            number = ''.join(random.choices(string.digits, k=8))
+            if not Order.objects.filter(order_number=number).exists():
+                return number
+
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
+    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sold_items')
+    
     quantity = models.PositiveIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_items')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Article de commande"
         verbose_name_plural = "Articles de commande"
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name} dans la commande {self.order.id}"
+        return f"{self.quantity} x {self.product.name}"
+
+# === Modèle Review ===
+class Review(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    title = models.CharField(max_length=255, blank=True, verbose_name="Titre de l'avis")
+    comment = models.TextField(verbose_name="Commentaire")
+    
+    # Réponse du vendeur
+    seller_reply = models.TextField(blank=True, verbose_name="Réponse du vendeur")
+    seller_reply_date = models.DateTimeField(null=True, blank=True)
+    
+    # Modération
+    is_approved = models.BooleanField(default=False)
+    is_verified_purchase = models.BooleanField(default=False)
+    
+    # Dates
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Avis"
+        verbose_name_plural = "Avis"
+        unique_together = ('product', 'user')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Avis de {self.user.username} sur {self.product.name}"
 
 # === Modèle Favorite ===
 class Favorite(models.Model):
@@ -418,70 +420,30 @@ class Favorite(models.Model):
         unique_together = ('user', 'product')
 
     def __str__(self):
-        return f"{self.user.username} a favorisé {self.product.name}"
-
-# === Modèle Review ===
-class Review(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
-    comment = models.TextField(max_length=500, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    reply = models.TextField(max_length=500, blank=True, null=True)
-    is_approved = models.BooleanField(default=False)
-
-    class Meta:
-        verbose_name = "Avis"
-        verbose_name_plural = "Avis"
-        unique_together = ('product', 'user')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Avis de {self.user.username} sur {self.product.name} ({self.rating}/5)"
-
-# === Modèle ProductRequest ===
-class ProductRequest(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='requests')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='product_requests', null=True, blank=True)
-    email = models.EmailField(blank=True, null=True)
-    message = models.TextField(blank=True, null=True)
-    desired_quantity = models.PositiveIntegerField(default=1)
-    desired_date = models.DateField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_notified = models.BooleanField(default=False)
-
-    class Meta:
-        verbose_name = "Demande de produit"
-        verbose_name_plural = "Demandes de produits"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Demande de {self.user.username if self.user else self.email} pour {self.product.name}"
-
-# === Modèle ProductView ===
-class ProductView(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_views')
-    view_date = models.DateTimeField(auto_now_add=True)
-    view_count = models.PositiveIntegerField(default=1)
-
-    class Meta:
-        verbose_name = "Vue produit"
-        verbose_name_plural = "Vues produit"
-        unique_together = ('product', 'view_date')
-
-    def __str__(self):
-        return f"{self.product.name} vu le {self.view_date.strftime('%Y-%m-%d')} ({self.view_count} vues)"
+        return f"{self.user.username} ♥ {self.product.name}"
 
 # === Modèle Notification ===
 class Notification(models.Model):
+    TYPE_CHOICES = [
+        ('order_placed', 'Nouvelle commande'),
+        ('order_updated', 'Commande mise à jour'),
+        ('product_approved', 'Produit approuvé'),
+        ('product_rejected', 'Produit rejeté'),
+        ('review_added', 'Nouvel avis'),
+        ('stock_low', 'Stock faible'),
+        ('general', 'Général'),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
-    notification_type = models.CharField(max_length=50)
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='general')
+    title = models.CharField(max_length=255)
     message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
-    related_object_id = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Lien optionnel
+    action_url = models.URLField(blank=True)
+    action_text = models.CharField(max_length=100, blank=True)
 
     class Meta:
         verbose_name = "Notification"
@@ -489,463 +451,4 @@ class Notification(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Notification pour {self.user.username}: {self.message[:50]}..."
-
-# === Modèles Conversation et Message ===
-class Conversation(models.Model):
-    initiator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations_initiated')
-    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations_received')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='conversations')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Conversation"
-        verbose_name_plural = "Conversations"
-        unique_together = ('initiator', 'recipient', 'product')
-
-    def __str__(self):
-        return f"Conversation entre {self.initiator} et {self.recipient}"
-
-class Message(models.Model):
-    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
-    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    content = models.TextField()
-    sent_at = models.DateTimeField(auto_now_add=True)
-    is_read = models.BooleanField(default=False)
-
-    class Meta:
-        verbose_name = "Message"
-        verbose_name_plural = "Messages"
-        ordering = ['sent_at']
-
-    def __str__(self):
-        return f"Message de {self.sender}"
-
-# === Modèle SellerRating ===
-class SellerRating(models.Model):
-    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ratings_received')
-    rater = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ratings_given')
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='ratings')
-    rating = models.PositiveIntegerField(choices=[(i, i) for i in range(1, 6)])
-    comment = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Note vendeur"
-        verbose_name_plural = "Notes vendeurs"
-        unique_together = ('seller', 'rater', 'order')
-
-    def __str__(self):
-        return f"Note {self.rating}/5 par {self.rater}"
-
-# === Modèle SellerProfile ===
-class SellerProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller_profile')
-    first_name = models.CharField(max_length=100, blank=True, null=True)
-    last_name = models.CharField(max_length=100, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-    business_name = models.CharField(max_length=200, blank=True, null=True)
-    business_address = models.CharField(max_length=255, blank=True, null=True)
-    contact_phone = models.CharField(max_length=20, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Profil vendeur"
-        verbose_name_plural = "Profils vendeurs"
-
-    def __str__(self):
-        return f"Profil de {self.user.username}"
-
-class DeliveryProfile(models.Model):
-    """Profil spécifique aux livreurs"""
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='delivery_profile',
-        limit_choices_to={'user_type': 'delivery'}
-    )
-    phone_number = models.CharField(max_length=20, verbose_name="Numéro de téléphone")
-    vehicle_type = models.CharField(
-        max_length=20,
-        choices=[
-            ('bike', 'Vélo'),
-            ('motorbike', 'Moto'),
-            ('car', 'Voiture'),
-            ('van', 'Camionnette'),
-        ],
-        verbose_name="Type de véhicule"
-    )
-    license_number = models.CharField(max_length=50, blank=True, verbose_name="Numéro de permis")
-    is_available = models.BooleanField(default=True, verbose_name="Disponible")
-    current_latitude = models.FloatField(null=True, blank=True)
-    current_longitude = models.FloatField(null=True, blank=True)
-    last_location_update = models.DateTimeField(null=True, blank=True)
-    rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0, verbose_name="Note moyenne")
-    total_deliveries = models.PositiveIntegerField(default=0, verbose_name="Nombre de livraisons")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Profil livreur"
-        verbose_name_plural = "Profils livreurs"
-    
-    def __str__(self):
-        return f"Livreur {self.user.username}"
-    
-    def update_location(self, latitude, longitude):
-        """Met à jour la position du livreur"""
-        self.current_latitude = latitude
-        self.current_longitude = longitude
-        self.last_location_update = timezone.now()
-        self.save(update_fields=['current_latitude', 'current_longitude', 'last_location_update'])
-
-# === Modèle QR Code de livraison ===
-class QRDeliveryCode(models.Model):
-    """QR Code généré pour chaque commande contenant les infos de livraison"""
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='qr_code')
-    code = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
-    delivery_address = models.TextField(verbose_name="Adresse de livraison")
-    delivery_mode = models.CharField(max_length=20, verbose_name="Mode de livraison")
-    preferred_payment_method = models.CharField(max_length=20, verbose_name="Mode de paiement préféré")
-    vendor_address = models.TextField(blank=True, verbose_name="Adresse vendeur")
-    special_instructions = models.TextField(blank=True, verbose_name="Instructions spéciales")
-    
-    # Sécurité
-    expires_at = models.DateTimeField(verbose_name="Expire le")
-    is_used = models.BooleanField(default=False, verbose_name="Utilisé")
-    scanned_at = models.DateTimeField(null=True, blank=True, verbose_name="Scanné le")
-    
-    # Métadonnées
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "QR Code de livraison"
-        verbose_name_plural = "QR Codes de livraison"
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"QR Code pour commande #{self.order.id}"
-    
-    @property
-    def is_expired(self):
-        """Vérifie si le QR Code a expiré"""
-        return timezone.now() > self.expires_at
-    
-    @property
-    def qr_url(self):
-        """URL pour scanner le QR Code"""
-        return f"/delivery/scan/{self.code}/"
-    
-    def mark_as_used(self):
-        """Marque le QR Code comme utilisé"""
-        self.is_used = True
-        self.scanned_at = timezone.now()
-        self.save(update_fields=['is_used', 'scanned_at'])
-
-# === Modèle d'assignation de livraison ===
-class DeliveryAssignment(models.Model):
-    """Assignation d'une livraison à un livreur"""
-    STATUS_CHOICES = [
-        ('pending', 'En attente'),
-        ('accepted', 'Acceptée'),
-        ('picked_up', 'Récupérée chez vendeur'),
-        ('in_transit', 'En cours de livraison'),
-        ('delivered', 'Livrée'),
-        ('cancelled', 'Annulée'),
-        ('expired', 'Expirée')
-    ]
-    
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='delivery_assignments')
-    vendor = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='vendor_assignments'
-    )
-    delivery_person = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='delivery_assignments',
-        limit_choices_to={'user_type': 'delivery'}
-    )
-    
-    # Commission et paiement
-    commission_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant commission")
-    commission_payer = models.CharField(
-        max_length=20,
-        choices=[
-            ('vendor', 'Vendeur'),
-            ('customer', 'Client')
-        ],
-        verbose_name="Qui paie la commission"
-    )
-    distance_km = models.FloatField(default=0, verbose_name="Distance en km")
-    
-    # Statut et timestamps
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    assigned_at = models.DateTimeField(auto_now_add=True)
-    accepted_at = models.DateTimeField(null=True, blank=True)
-    picked_up_at = models.DateTimeField(null=True, blank=True)
-    delivered_at = models.DateTimeField(null=True, blank=True)
-    expires_at = models.DateTimeField(verbose_name="Expire le")
-    
-    # Instructions
-    vendor_instructions = models.TextField(blank=True, verbose_name="Instructions du vendeur")
-    delivery_notes = models.TextField(blank=True, verbose_name="Notes de livraison")
-    
-    class Meta:
-        verbose_name = "Assignation de livraison"
-        verbose_name_plural = "Assignations de livraison"
-        ordering = ['-assigned_at']
-    
-    def __str__(self):
-        return f"Livraison #{self.id} - Commande #{self.order.id}"
-    
-    @property
-    def is_expired(self):
-        """Vérifie si l'assignation a expiré"""
-        return timezone.now() > self.expires_at and self.status == 'pending'
-    
-    def calculate_commission(self):
-        """Calcule la commission basée sur la distance"""
-        base_commission = 2.0  # 2€ par km
-        return self.distance_km * base_commission
-    
-    def accept_delivery(self, delivery_person):
-        """Accepte la livraison"""
-        self.delivery_person = delivery_person
-        self.status = 'accepted'
-        self.accepted_at = timezone.now()
-        self.save()
-    
-    def mark_picked_up(self):
-        """Marque comme récupéré chez le vendeur"""
-        self.status = 'picked_up'
-        self.picked_up_at = timezone.now()
-        self.save()
-    
-    def mark_delivered(self):
-        """Marque comme livré"""
-        self.status = 'delivered'
-        self.delivered_at = timezone.now()
-        self.save()
-
-class DeliveryRating(models.Model):
-    """Évaluation des livreurs par les clients"""
-    delivery_person = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='delivery_ratings'
-    )
-    customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='given_delivery_ratings'
-    )
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='delivery_rating')
-    rating = models.PositiveIntegerField(
-        choices=[(i, i) for i in range(1, 6)],
-        verbose_name="Note"
-    )
-    comment = models.TextField(blank=True, verbose_name="Commentaire")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Évaluation livreur"
-        verbose_name_plural = "Évaluations livreurs"
-        unique_together = ['delivery_person', 'customer', 'order']
-    
-    def __str__(self):
-        return f"Note {self.rating}/5 pour {self.delivery_person.username}"
-
-# === Modèle Subscription ===
-class Subscription(models.Model):
-    PLAN_CHOICES = [
-        ('free', 'Gratuit'),
-        ('basic', 'Basique'),
-        ('pro', 'Professionnel'),
-    ]
-    
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscription')
-    plan = models.CharField(max_length=10, choices=PLAN_CHOICES, default='free')
-    stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
-    start_date = models.DateTimeField(auto_now_add=True)
-    end_date = models.DateTimeField(blank=True, null=True)
-    active = models.BooleanField(default=False)
-
-    class Meta:
-        verbose_name = "Abonnement"
-        verbose_name_plural = "Abonnements"
-
-    def __str__(self):
-        return f"Abonnement {self.plan} de {self.user}"
-
-# === Modèles de Géolocalisation pour la Guinée ===
-class GuineaRegion(models.Model):
-    """Régions administratives de la Guinée"""
-    name = models.CharField(max_length=100, unique=True, verbose_name="Nom de la région")
-    code = models.CharField(max_length=10, unique=True, verbose_name="Code région")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Région"
-        verbose_name_plural = "Régions"
-        ordering = ['name']
-    
-    def __str__(self):
-        return self.name
-
-class GuineaPrefecture(models.Model):
-    """Préfectures/Communes de la Guinée"""
-    region = models.ForeignKey(GuineaRegion, on_delete=models.CASCADE, related_name='prefectures')
-    name = models.CharField(max_length=100, verbose_name="Nom de la préfecture")
-    code = models.CharField(max_length=10, verbose_name="Code préfecture")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Préfecture"
-        verbose_name_plural = "Préfectures"
-        ordering = ['name']
-        unique_together = ['region', 'name']
-    
-    def __str__(self):
-        return f"{self.name} ({self.region.name})"
-
-class GuineaQuartier(models.Model):
-    """Quartiers/Secteurs"""
-    prefecture = models.ForeignKey(GuineaPrefecture, on_delete=models.CASCADE, related_name='quartiers')
-    name = models.CharField(max_length=100, verbose_name="Nom du quartier")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        verbose_name = "Quartier"
-        verbose_name_plural = "Quartiers"
-        ordering = ['name']
-        unique_together = ['prefecture', 'name']
-    
-    def __str__(self):
-        return f"{self.name} ({self.prefecture.name})"
-
-class GuineaAddress(models.Model):
-    """Adresses spécifiques à la Guinée avec système collaboratif"""
-    STATUS_CHOICES = [
-        ('pending', 'En attente de validation'),
-        ('validated', 'Validée'),
-        ('rejected', 'Rejetée'),
-    ]
-    
-    # Informations géographiques
-    region = models.ForeignKey(GuineaRegion, on_delete=models.CASCADE, related_name='addresses')
-    prefecture = models.ForeignKey(GuineaPrefecture, on_delete=models.CASCADE, related_name='addresses')
-    quartier = models.ForeignKey(GuineaQuartier, on_delete=models.CASCADE, related_name='addresses')
-    
-    # Description locale
-    description = models.TextField(
-        verbose_name="Description de l'adresse",
-        help_text="Ex: 123 près de la mosquée Diaouné, en face du marché"
-    )
-    landmark = models.CharField(
-        max_length=200, 
-        blank=True, 
-        verbose_name="Point de repère",
-        help_text="Ex: Mosquée, École, Marché, etc."
-    )
-    
-    # Coordonnées GPS
-    latitude = models.FloatField(
-        validators=[MinValueValidator(7.0), MaxValueValidator(13.0)],
-        verbose_name="Latitude"
-    )
-    longitude = models.FloatField(
-        validators=[MinValueValidator(-15.0), MaxValueValidator(-7.0)],
-        verbose_name="Longitude"
-    )
-    
-    # Métadonnées
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_addresses')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    usage_count = models.PositiveIntegerField(default=0, verbose_name="Nombre d'utilisations")
-    
-    # Photo optionnelle
-    photo = models.ImageField(upload_to='addresses/photos/', blank=True, null=True)
-    
-    class Meta:
-        verbose_name = "Adresse guinéenne"
-        verbose_name_plural = "Adresses guinéennes"
-        ordering = ['-usage_count', '-created_at']
-        unique_together = ['latitude', 'longitude']
-    
-    def __str__(self):
-        return f"{self.description[:50]} - {self.quartier.name}"
-    
-    @property
-    def google_maps_link(self):
-        """Génère un lien Google Maps"""
-        return f"https://www.google.com/maps?q={self.latitude},{self.longitude}"
-
-class UserLocation(models.Model):
-    """Localisation d'un utilisateur avec photo et description"""
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='store_locations')
-    guinea_address = models.ForeignKey(GuineaAddress, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # Coordonnées exactes
-    latitude = models.FloatField(verbose_name="Latitude")
-    longitude = models.FloatField(verbose_name="Longitude")
-    
-    # Description personnalisée
-    description = models.TextField(
-        verbose_name="Description personnalisée",
-        help_text="Décrivez précisément votre localisation"
-    )
-    
-    # Photo avec géolocalisation
-    photo = models.ImageField(upload_to='user_locations/', blank=True, null=True)
-    photo_latitude = models.FloatField(null=True, blank=True)
-    photo_longitude = models.FloatField(null=True, blank=True)
-    
-    # Métadonnées
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        verbose_name = "Localisation utilisateur"
-        verbose_name_plural = "Localisations utilisateurs"
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.description[:50]}"
-    
-    @property
-    def google_maps_link(self):
-        """Génère un lien Google Maps"""
-        return f"https://www.google.com/maps?q={self.latitude},{self.longitude}"
-
-class DeliveryLocation(models.Model):
-    """Localisation spécifique pour les livraisons"""
-    user_location = models.OneToOneField(UserLocation, on_delete=models.CASCADE, related_name='delivery_info')
-    access_instructions = models.TextField(
-        verbose_name="Instructions d'accès",
-        help_text="Comment accéder à cette adresse (étage, porte, etc.)"
-    )
-    contact_phone = models.CharField(max_length=20, verbose_name="Téléphone de contact")
-    is_default = models.BooleanField(default=False, verbose_name="Adresse par défaut")
-    
-    class Meta:
-        verbose_name = "Adresse de livraison"
-        verbose_name_plural = "Adresses de livraison"
-    
-    def __str__(self):
-        return f"Livraison - {self.user_location.description[:30]}"
-
-# === Signaux ===
-@receiver(post_save, sender=Order)
-def set_order_seller(sender, instance, created, **kwargs):
-    if created and not instance.seller:
-        first_item = instance.items.first()
-        if first_item and first_item.product and first_item.product.seller:
-            instance.seller = first_item.product.seller
-            instance.save(update_fields=['seller'])
+        return f"Notification pour {self.user.username}: {self.title}"

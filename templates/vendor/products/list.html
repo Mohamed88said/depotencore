@@ -1,0 +1,414 @@
+{% extends 'vendor/base.html' %}
+{% load static %}
+
+{% block title %}Mes Produits{% endblock %}
+
+{% block vendor_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">Mes Produits</h1>
+        <p class="text-muted">Gérez votre catalogue de produits</p>
+    </div>
+    <a href="{% url 'vendor:product_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>Nouveau Produit
+    </a>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ stats.total }}</h3>
+                <small class="text-muted">Total</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ stats.active }}</h3>
+                <small class="text-muted">Actifs</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-warning">{{ stats.pending }}</h3>
+                <small class="text-muted">En attente</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-danger">{{ stats.low_stock }}</h3>
+                <small class="text-muted">Stock faible</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-dark">{{ stats.out_of_stock }}</h3>
+                <small class="text-muted">Rupture</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtres et recherche -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                {{ search_form.q }}
+            </div>
+            <div class="col-md-2">
+                {{ search_form.category }}
+            </div>
+            <div class="col-md-2">
+                {{ search_form.status }}
+            </div>
+            <div class="col-md-2">
+                {{ search_form.stock_status }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-search me-1"></i>Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Actions en lot -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="bulkActionForm" method="post" action="{% url 'vendor:bulk_product_action' %}">
+            {% csrf_token %}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    {{ bulk_form.action }}
+                </div>
+                <div class="col-md-3" id="categoryField" style="display: none;">
+                    {{ bulk_form.new_category }}
+                </div>
+                <div class="col-md-2" id="discountField" style="display: none;">
+                    {{ bulk_form.discount_percentage }}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-warning" disabled id="bulkActionBtn">
+                        <i class="fas fa-cogs me-1"></i>Appliquer
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <span id="selectedCount" class="text-muted">0 sélectionné(s)</span>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des produits -->
+{% if products %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" id="selectAll" class="form-check-input">
+                        </th>
+                        <th width="80">Image</th>
+                        <th>Produit</th>
+                        <th width="100">Prix</th>
+                        <th width="80">Stock</th>
+                        <th width="100">Statut</th>
+                        <th width="80">Vues</th>
+                        <th width="80">Ventes</th>
+                        <th width="150">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="product_ids" value="{{ product.id }}" class="form-check-input product-checkbox">
+                        </td>
+                        <td>
+                            {% if product.main_image %}
+                                <img src="{{ product.main_image.url }}" alt="{{ product.name }}" 
+                                     class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center" 
+                                     style="width: 50px; height: 50px;">
+                                    <i class="fas fa-image text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div>
+                                <strong class="editable" data-field="name" data-product="{{ product.id }}">
+                                    {{ product.name }}
+                                </strong>
+                                <br>
+                                <small class="text-muted">{{ product.category.name|default:"Sans catégorie" }}</small>
+                                {% if product.is_low_stock %}
+                                    <br><span class="badge bg-warning">Stock faible</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="editable" data-field="price" data-product="{{ product.id }}">
+                                {{ product.price }} €
+                            </span>
+                            {% if product.compare_price %}
+                                <br><small class="text-muted text-decoration-line-through">{{ product.compare_price }} €</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="editable" data-field="stock" data-product="{{ product.id }}"
+                                  data-class="{% if product.stock == 0 %}text-danger{% elif product.is_low_stock %}text-warning{% else %}text-success{% endif %}">
+                                {{ product.stock }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if product.status == 'active' %}bg-success{% elif product.status == 'pending' %}bg-warning{% elif product.status == 'draft' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                {{ product.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ product.views }}</td>
+                        <td>{{ product.sales_count }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'vendor:product_edit' product.pk %}" 
+                                   class="btn btn-outline-primary" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'vendor:product_analytics' product.id %}" 
+                                   class="btn btn-outline-info" title="Statistiques">
+                                    <i class="fas fa-chart-line"></i>
+                                </a>
+                                <a href="{% url 'vendor:product_duplicate' product.id %}" 
+                                   class="btn btn-outline-secondary" title="Dupliquer">
+                                    <i class="fas fa-copy"></i>
+                                </a>
+                                <a href="{% url 'store:product_detail' product.slug %}" 
+                                   class="btn btn-outline-success" title="Voir" target="_blank">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button class="btn btn-outline-danger" 
+                                        onclick="deleteProduct({{ product.id }}, '{{ product.name }}')" 
+                                        title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">Premier</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Précédent</a>
+            </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Dernier</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<!-- État vide -->
+<div class="text-center py-5">
+    <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+    <h4 class="text-muted">Aucun produit trouvé</h4>
+    <p class="text-muted">Commencez par créer votre premier produit</p>
+    <a href="{% url 'vendor:product_create' %}" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus me-2"></i>Créer mon premier produit
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestion des sélections multiples
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    const bulkActionBtn = document.getElementById('bulkActionBtn');
+    const selectedCount = document.getElementById('selectedCount');
+    const actionSelect = document.querySelector('select[name="action"]');
+    
+    // Sélectionner tout
+    selectAll.addEventListener('change', function() {
+        productCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateBulkActions();
+    });
+    
+    // Sélection individuelle
+    productCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateBulkActions);
+    });
+    
+    // Afficher/masquer champs conditionnels
+    actionSelect.addEventListener('change', function() {
+        const categoryField = document.getElementById('categoryField');
+        const discountField = document.getElementById('discountField');
+        
+        categoryField.style.display = this.value === 'update_category' ? 'block' : 'none';
+        discountField.style.display = this.value === 'apply_discount' ? 'block' : 'none';
+    });
+    
+    function updateBulkActions() {
+        const selected = document.querySelectorAll('.product-checkbox:checked');
+        const count = selected.length;
+        
+        selectedCount.textContent = `${count} sélectionné(s)`;
+        bulkActionBtn.disabled = count === 0;
+        
+        // Mettre à jour "Sélectionner tout"
+        selectAll.indeterminate = count > 0 && count < productCheckboxes.length;
+        selectAll.checked = count === productCheckboxes.length;
+    }
+    
+    // Édition en ligne
+    document.querySelectorAll('.editable').forEach(element => {
+        element.addEventListener('dblclick', function() {
+            makeEditable(this);
+        });
+    });
+});
+
+function makeEditable(element) {
+    const field = element.dataset.field;
+    const productId = element.dataset.product;
+    const currentValue = element.textContent.trim().replace(' €', '');
+    
+    const input = document.createElement('input');
+    input.type = field === 'price' ? 'number' : field === 'stock' ? 'number' : 'text';
+    input.value = currentValue;
+    input.className = 'form-control form-control-sm';
+    input.style.width = '100px';
+    
+    element.innerHTML = '';
+    element.appendChild(input);
+    input.focus();
+    
+    function saveEdit() {
+        const newValue = input.value;
+        
+        fetch(`/vendor/products/${productId}/quick-edit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                field: field,
+                value: newValue
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                element.textContent = field === 'price' ? `${newValue} €` : newValue;
+                showToast('success', data.message);
+            } else {
+                element.textContent = currentValue;
+                showToast('error', data.error);
+            }
+        })
+        .catch(error => {
+            element.textContent = currentValue;
+            showToast('error', 'Erreur de connexion');
+        });
+    }
+    
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            element.textContent = currentValue;
+        }
+    });
+}
+
+function deleteProduct(productId, productName) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer "${productName}" ?`)) {
+        window.location.href = `/vendor/products/${productId}/delete/`;
+    }
+}
+
+function showToast(type, message) {
+    // Créer un toast Bootstrap
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Ajouter au container de toasts
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    // Activer le toast
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+    
+    // Supprimer après fermeture
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
+</script>
+{% endblock %}

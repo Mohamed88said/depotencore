@@ -1,0 +1,525 @@
+{% extends 'vendor/base.html' %}
+{% load static %}
+
+{% block title %}Nouveau Produit{% endblock %}
+
+{% block extra_css %}
+<style>
+    .image-upload-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .image-upload-zone:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    
+    .image-upload-zone.dragover {
+        border-color: #0d6efd;
+        background-color: #e7f3ff;
+    }
+    
+    .image-preview {
+        max-width: 100%;
+        max-height: 150px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .section-title i {
+        margin-right: 0.5rem;
+        color: #0d6efd;
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block vendor_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">Nouveau Produit</h1>
+        <p class="text-muted">Ajoutez un nouveau produit à votre catalogue</p>
+    </div>
+    <a href="{% url 'vendor:products' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Retour à la liste
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+    {% csrf_token %}
+    
+    <!-- Section 1: Informations de base -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-info-circle"></i>
+            Informations de base
+        </h4>
+        
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label for="{{ form.name.id_for_label }}" class="form-label required-field">
+                    {{ form.name.label }}
+                </label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-4">
+                <label for="{{ form.category_name.id_for_label }}" class="form-label">
+                    {{ form.category_name.label }}
+                </label>
+                {{ form.category_name }}
+                <datalist id="categories-list">
+                    {% for category in categories %}
+                        <option value="{{ category.name }}">
+                    {% endfor %}
+                </datalist>
+                {% if form.category_name.errors %}
+                    <div class="invalid-feedback d-block">{{ form.category_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-12">
+                <label for="{{ form.description.id_for_label }}" class="form-label required-field">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                <div class="form-text">{{ form.description.help_text }}</div>
+                {% if form.description.errors %}
+                    <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-12">
+                <label for="{{ form.short_description.id_for_label }}" class="form-label">
+                    {{ form.short_description.label }}
+                </label>
+                {{ form.short_description }}
+                {% if form.short_description.errors %}
+                    <div class="invalid-feedback d-block">{{ form.short_description.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section 2: Prix et stock -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-euro-sign"></i>
+            Prix et stock
+        </h4>
+        
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="{{ form.price.id_for_label }}" class="form-label required-field">
+                    {{ form.price.label }}
+                </label>
+                <div class="input-group">
+                    {{ form.price }}
+                    <span class="input-group-text">€</span>
+                </div>
+                {% if form.price.errors %}
+                    <div class="invalid-feedback d-block">{{ form.price.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.compare_price.id_for_label }}" class="form-label">
+                    {{ form.compare_price.label }}
+                </label>
+                <div class="input-group">
+                    {{ form.compare_price }}
+                    <span class="input-group-text">€</span>
+                </div>
+                <div class="form-text">Prix barré pour montrer une réduction</div>
+                {% if form.compare_price.errors %}
+                    <div class="invalid-feedback d-block">{{ form.compare_price.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.stock.id_for_label }}" class="form-label required-field">
+                    {{ form.stock.label }}
+                </label>
+                {{ form.stock }}
+                {% if form.stock.errors %}
+                    <div class="invalid-feedback d-block">{{ form.stock.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.low_stock_threshold.id_for_label }}" class="form-label">
+                    {{ form.low_stock_threshold.label }}
+                </label>
+                {{ form.low_stock_threshold }}
+                <div class="form-text">Alerte quand le stock atteint ce seuil</div>
+                {% if form.low_stock_threshold.errors %}
+                    <div class="invalid-feedback d-block">{{ form.low_stock_threshold.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section 3: Images -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-images"></i>
+            Images du produit
+        </h4>
+        
+        <div class="row g-3">
+            {% for i in "12345" %}
+            <div class="col-md-4">
+                <label class="form-label">Image {{ i }}{% if i == "1" %} (principale){% endif %}</label>
+                <div class="image-upload-zone" onclick="document.getElementById('id_image{{ i }}').click()">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Cliquez pour choisir une image</p>
+                        <small class="text-muted">ou glissez-déposez ici</small>
+                    </div>
+                    <div class="preview-content" style="display: none;">
+                        <img class="image-preview" alt="Aperçu">
+                        <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeImage({{ i }})">
+                            <i class="fas fa-trash"></i> Supprimer
+                        </button>
+                    </div>
+                </div>
+                {{ form.image1|add_class:"d-none" }}
+                {% if form.image1.errors %}
+                    <div class="invalid-feedback d-block">{{ form.image1.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Formats acceptés : JPG, PNG, WEBP. Taille max : 5MB. 
+                Recommandé : images carrées 800x800px minimum.
+            </small>
+        </div>
+    </div>
+    
+    <!-- Section 4: Attributs -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-tags"></i>
+            Attributs du produit
+        </h4>
+        
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="{{ form.size.id_for_label }}" class="form-label">{{ form.size.label }}</label>
+                {{ form.size }}
+                {% if form.size.errors %}
+                    <div class="invalid-feedback d-block">{{ form.size.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.brand.id_for_label }}" class="form-label">{{ form.brand.label }}</label>
+                {{ form.brand }}
+                {% if form.brand.errors %}
+                    <div class="invalid-feedback d-block">{{ form.brand.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.color.id_for_label }}" class="form-label">{{ form.color.label }}</label>
+                {{ form.color }}
+                {% if form.color.errors %}
+                    <div class="invalid-feedback d-block">{{ form.color.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.material.id_for_label }}" class="form-label">{{ form.material.label }}</label>
+                {{ form.material }}
+                {% if form.material.errors %}
+                    <div class="invalid-feedback d-block">{{ form.material.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6">
+                <label for="{{ form.condition.id_for_label }}" class="form-label">{{ form.condition.label }}</label>
+                {{ form.condition }}
+                {% if form.condition.errors %}
+                    <div class="invalid-feedback d-block">{{ form.condition.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6">
+                <label for="{{ form.tags.id_for_label }}" class="form-label">{{ form.tags.label }}</label>
+                {{ form.tags }}
+                <div class="form-text">{{ form.tags.help_text }}</div>
+                {% if form.tags.errors %}
+                    <div class="invalid-feedback d-block">{{ form.tags.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section 5: Dimensions (optionnel) -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-ruler-combined"></i>
+            Dimensions et poids (optionnel)
+        </h4>
+        
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="{{ form.weight.id_for_label }}" class="form-label">{{ form.weight.label }}</label>
+                <div class="input-group">
+                    {{ form.weight }}
+                    <span class="input-group-text">kg</span>
+                </div>
+                {% if form.weight.errors %}
+                    <div class="invalid-feedback d-block">{{ form.weight.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.length.id_for_label }}" class="form-label">{{ form.length.label }}</label>
+                <div class="input-group">
+                    {{ form.length }}
+                    <span class="input-group-text">cm</span>
+                </div>
+                {% if form.length.errors %}
+                    <div class="invalid-feedback d-block">{{ form.length.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.width.id_for_label }}" class="form-label">{{ form.width.label }}</label>
+                <div class="input-group">
+                    {{ form.width }}
+                    <span class="input-group-text">cm</span>
+                </div>
+                {% if form.width.errors %}
+                    <div class="invalid-feedback d-block">{{ form.width.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-3">
+                <label for="{{ form.height.id_for_label }}" class="form-label">{{ form.height.label }}</label>
+                <div class="input-group">
+                    {{ form.height }}
+                    <span class="input-group-text">cm</span>
+                </div>
+                {% if form.height.errors %}
+                    <div class="invalid-feedback d-block">{{ form.height.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section 6: SEO (optionnel) -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-search"></i>
+            Référencement (SEO)
+        </h4>
+        
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="{{ form.meta_title.id_for_label }}" class="form-label">{{ form.meta_title.label }}</label>
+                {{ form.meta_title }}
+                <div class="form-text">Titre qui apparaîtra dans les moteurs de recherche</div>
+                {% if form.meta_title.errors %}
+                    <div class="invalid-feedback d-block">{{ form.meta_title.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-6">
+                <label for="{{ form.meta_description.id_for_label }}" class="form-label">{{ form.meta_description.label }}</label>
+                {{ form.meta_description }}
+                <div class="form-text">Description qui apparaîtra dans les moteurs de recherche</div>
+                {% if form.meta_description.errors %}
+                    <div class="invalid-feedback d-block">{{ form.meta_description.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Captcha -->
+    <div class="form-section">
+        <h4 class="section-title">
+            <i class="fas fa-shield-alt"></i>
+            Vérification
+        </h4>
+        
+        {{ form.captcha }}
+        {% if form.captcha.errors %}
+            <div class="invalid-feedback d-block">{{ form.captcha.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <!-- Boutons d'action -->
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'vendor:products' %}" class="btn btn-outline-secondary btn-lg">
+            <i class="fas fa-times me-2"></i>Annuler
+        </a>
+        
+        <div>
+            <button type="submit" name="action" value="draft" class="btn btn-outline-primary btn-lg me-2">
+                <i class="fas fa-save me-2"></i>Sauvegarder en brouillon
+            </button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-paper-plane me-2"></i>Soumettre pour modération
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des uploads d'images
+    for (let i = 1; i <= 5; i++) {
+        setupImageUpload(i);
+    }
+    
+    // Validation Bootstrap
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    });
+});
+
+function setupImageUpload(imageNumber) {
+    const input = document.getElementById(`id_image${imageNumber}`);
+    const zone = input.closest('.col-md-4').querySelector('.image-upload-zone');
+    const uploadContent = zone.querySelector('.upload-content');
+    const previewContent = zone.querySelector('.preview-content');
+    const preview = zone.querySelector('.image-preview');
+    
+    // Drag & Drop
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+    
+    zone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+    
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            input.files = files;
+            handleImageSelect(input, imageNumber);
+        }
+    });
+    
+    // Sélection de fichier
+    input.addEventListener('change', function() {
+        handleImageSelect(this, imageNumber);
+    });
+}
+
+function handleImageSelect(input, imageNumber) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // Validation
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Image trop volumineuse (max 5MB)');
+        input.value = '';
+        return;
+    }
+    
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        alert('Format non supporté. Utilisez JPG, PNG ou WEBP.');
+        input.value = '';
+        return;
+    }
+    
+    // Aperçu
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const zone = input.closest('.col-md-4').querySelector('.image-upload-zone');
+        const uploadContent = zone.querySelector('.upload-content');
+        const previewContent = zone.querySelector('.preview-content');
+        const preview = zone.querySelector('.image-preview');
+        
+        preview.src = e.target.result;
+        uploadContent.style.display = 'none';
+        previewContent.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeImage(imageNumber) {
+    const input = document.getElementById(`id_image${imageNumber}`);
+    const zone = input.closest('.col-md-4').querySelector('.image-upload-zone');
+    const uploadContent = zone.querySelector('.upload-content');
+    const previewContent = zone.querySelector('.preview-content');
+    
+    input.value = '';
+    uploadContent.style.display = 'flex';
+    previewContent.style.display = 'none';
+}
+
+// Autocomplétion des catégories
+document.getElementById('id_category_name').addEventListener('input', function() {
+    const query = this.value;
+    if (query.length < 2) return;
+    
+    fetch(`/api/categories/autocomplete/?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            const datalist = document.getElementById('categories-list');
+            datalist.innerHTML = '';
+            data.results.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.name;
+                datalist.appendChild(option);
+            });
+        });
+});
+</script>
+{% endblock %}

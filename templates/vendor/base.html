@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Vendeur - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/dashboard.css' %}">
+<style>
+    .vendor-sidebar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: calc(100vh - 76px);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .vendor-nav .nav-link {
+        color: rgba(255,255,255,0.8);
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        margin: 0.25rem 0;
+        transition: all 0.3s;
+    }
+    
+    .vendor-nav .nav-link:hover,
+    .vendor-nav .nav-link.active {
+        color: white;
+        background-color: rgba(255,255,255,0.2);
+        transform: translateX(5px);
+    }
+    
+    .vendor-nav .nav-link i {
+        width: 20px;
+        margin-right: 0.5rem;
+    }
+    
+    .vendor-content {
+        background-color: #f8f9fa;
+        min-height: calc(100vh - 76px);
+        padding: 2rem;
+    }
+    
+    .vendor-header {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .notification-badge {
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row g-0">
+        <!-- Sidebar vendeur -->
+        <div class="col-md-3 col-lg-2 vendor-sidebar">
+            <div class="p-3">
+                <div class="text-center mb-4">
+                    <div class="d-flex align-items-center text-white">
+                        <i class="fas fa-store fa-2x me-2"></i>
+                        <div>
+                            <h5 class="mb-0">{{ user.seller_profile.business_name|default:user.username }}</h5>
+                            <small class="opacity-75">Dashboard Vendeur</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <nav class="vendor-nav">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                               href="{% url 'vendor:dashboard' %}">
+                                <i class="fas fa-tachometer-alt"></i>Vue d'ensemble
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'product' in request.resolver_match.url_name %}active{% endif %}" 
+                               href="{% url 'vendor:products' %}">
+                                <i class="fas fa-box"></i>Mes Produits
+                                {% if pending_products_count > 0 %}
+                                    <span class="notification-badge">{{ pending_products_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'orders' %}active{% endif %}" 
+                               href="{% url 'vendor:orders' %}">
+                                <i class="fas fa-shopping-cart"></i>Commandes
+                                {% if new_orders_count > 0 %}
+                                    <span class="notification-badge">{{ new_orders_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'stock_management' %}active{% endif %}" 
+                               href="{% url 'vendor:stock_management' %}">
+                                <i class="fas fa-warehouse"></i>Gestion Stock
+                                {% if low_stock_count > 0 %}
+                                    <span class="notification-badge">{{ low_stock_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'reviews' %}active{% endif %}" 
+                               href="{% url 'vendor:reviews' %}">
+                                <i class="fas fa-star"></i>Avis Clients
+                                {% if pending_reviews_count > 0 %}
+                                    <span class="notification-badge">{{ pending_reviews_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}" 
+                               href="{% url 'vendor:analytics' %}">
+                                <i class="fas fa-chart-line"></i>Statistiques
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" 
+                               href="{% url 'vendor:profile' %}">
+                                <i class="fas fa-user-cog"></i>Mon Profil
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" 
+                               href="{% url 'vendor:settings' %}">
+                                <i class="fas fa-cog"></i>Paramètres
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item mt-3">
+                            <hr class="text-white-50">
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'store:home' %}">
+                                <i class="fas fa-external-link-alt"></i>Voir la boutique
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'accounts:vendor_public_profile' user.username %}">
+                                <i class="fas fa-storefront"></i>Mon profil public
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+        
+        <!-- Contenu principal -->
+        <div class="col-md-9 col-lg-10 vendor-content">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                            {{ message }}
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            {% block vendor_content %}
+            {% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Notifications en temps réel pour les vendeurs
+document.addEventListener('DOMContentLoaded', function() {
+    // WebSocket pour les notifications vendeur
+    if (typeof WebSocket !== 'undefined') {
+        const ws = new WebSocket(`ws://${window.location.host}/ws/vendor-notifications/`);
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'new_order') {
+                showNotification('Nouvelle commande reçue !', 'success');
+                updateNotificationBadge('orders', data.count);
+            } else if (data.type === 'product_approved') {
+                showNotification('Produit approuvé !', 'success');
+            } else if (data.type === 'product_rejected') {
+                showNotification('Produit rejeté', 'warning');
+            } else if (data.type === 'new_review') {
+                showNotification('Nouvel avis reçu', 'info');
+                updateNotificationBadge('reviews', data.count);
+            } else if (data.type === 'low_stock') {
+                showNotification('Stock faible détecté', 'warning');
+                updateNotificationBadge('stock', data.count);
+            }
+        };
+    }
+});
+
+function showNotification(message, type = 'info') {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'error' ? 'danger' : 'info'} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${type === 'success' ? 'check' : type === 'warning' ? 'exclamation-triangle' : type === 'error' ? 'times' : 'info'}-circle me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
+
+function updateNotificationBadge(section, count) {
+    const badge = document.querySelector(`a[href*="${section}"] .notification-badge`);
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -212,15 +212,20 @@
                             Mode de livraison
                         </h6>
                         
-                        <button class="btn btn-primary choice-btn" onclick="deliverMyself({{ order.id }})">
+                        <a href="{% url 'store:assign_delivery_choice' order.id %}" class="btn btn-primary choice-btn">
                             <i class="fas fa-user me-2"></i>
-                            Je livre moi-même
-                        </button>
+                            Choisir mode de livraison
+                        </a>
                         
-                        <button class="btn btn-success choice-btn" onclick="assignDelivery({{ order.id }})">
-                            <i class="fas fa-motorcycle me-2"></i>
-                            Assigner un livreur
-                        </button>
+                        <a href="{% url 'store:select_delivery_person' order.id %}" class="btn btn-success choice-btn">
+                            <i class="fas fa-users me-2"></i>
+                            Choisir un livreur
+                        </a>
+                        
+                        <a href="{% url 'store:publish_to_marketplace' order.id %}" class="btn btn-info choice-btn">
+                            <i class="fas fa-bullhorn me-2"></i>
+                            Publier sur marketplace
+                        </a>
                         
                         <button class="btn btn-outline-danger choice-btn" onclick="cancelOrder({{ order.id }})">
                             <i class="fas fa-times me-2"></i>

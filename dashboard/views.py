@@ -33,6 +33,25 @@ class OverviewView(LoginRequiredMixin, TemplateView):
         context['total_orders'] = Order.objects.filter(items__product__seller=user).distinct().count()
         context['total_products'] = Product.objects.filter(seller=user).count()
         context['notifications'] = Notification.objects.filter(user=user).order_by('-created_at')[:5]
+        
+        # Nouvelles métriques pour les vendeurs
+        context['pending_orders_count'] = Order.objects.filter(
+            items__product__seller=user, 
+            status__in=['pending', 'processing']
+        ).distinct().count()
+        
+        context['active_deliveries_count'] = Order.objects.filter(
+            items__product__seller=user,
+            status__in=['shipped', 'out_for_delivery']
+        ).distinct().count()
+        
+        # Compter les livreurs disponibles
+        from store.models import DeliveryProfile
+        context['available_couriers_count'] = DeliveryProfile.objects.filter(
+            is_available=True,
+            user__is_active=True
+        ).count()
+        
         return context
 
 class OrdersView(LoginRequiredMixin, TemplateView):

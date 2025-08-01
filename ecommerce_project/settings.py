@@ -176,6 +176,16 @@ LOGIN_REDIRECT_URL = '/accounts/profile/'
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/profile/'
 ACCOUNT_SIGNUP_REDIRECT_URL = '/accounts/profile/'
 
+# Formulaires personnalisés
+ACCOUNT_FORMS = {
+    'signup': 'accounts.forms.BuyerSignUpForm',  # Par défaut pour les acheteurs
+    'login': 'accounts.forms.CustomLoginForm',
+}
+ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
+
+# URLs personnalisées
+ACCOUNT_SIGNUP_FORM_CLASS = None  # Désactivé car on utilise des vues personnalisées
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587

@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Créer mon compte - Inscription acheteur{% endblock %}
+
+{% block extra_css %}
+<style>
+    .buyer-signup-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 2rem 0;
+    }
+    
+    .signup-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px 15px 0 0;
+        text-align: center;
+    }
+    
+    .signup-body {
+        background: white;
+        padding: 2rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-buyer {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 10px;
+        width: 100%;
+    }
+    
+    .btn-buyer:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #5a67d8 100%);
+        color: white;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container buyer-signup-container">
+    <div class="signup-header">
+        <h1 class="mb-3">
+            <i class="fas fa-shopping-bag me-2"></i>
+            Créer mon compte
+        </h1>
+        <p class="mb-0">Rejoignez LuxeShop et découvrez des produits exceptionnels</p>
+    </div>
+    
+    <div class="signup-body">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ form.first_name.id_for_label }}" class="form-label">{{ form.first_name.label }}</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <div class="invalid-feedback d-block">{{ form.first_name.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.last_name.id_for_label }}" class="form-label">{{ form.last_name.label }}</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <div class="invalid-feedback d-block">{{ form.last_name.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback d-block">{{ form.username.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.password1.id_for_label }}" class="form-label">{{ form.password1.label }}</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                        <div class="invalid-feedback d-block">{{ form.password1.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }}</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                        <div class="invalid-feedback d-block">{{ form.password2.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    {{ form.captcha }}
+                    {% if form.captcha.errors %}
+                        <div class="invalid-feedback d-block">{{ form.captcha.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-buyer mt-4">
+                <i class="fas fa-user-plus me-2"></i>
+                Créer mon compte
+            </button>
+        </form>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                Déjà un compte ? 
+                <a href="{% url 'account_login' %}" class="text-primary">Connectez-vous</a>
+            </p>
+            <p class="text-muted">
+                <a href="{% url 'accounts:signup_choice' %}" class="text-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Retour au choix de compte
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

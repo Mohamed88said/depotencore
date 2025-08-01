@@ -13,9 +13,7 @@ handler500 = 'store.views.custom_500'
 urlpatterns = [
     path('admin/', admin_site.urls),
     path('admin_panel/', include('admin_panel.urls', namespace='admin_panel')),
-    path('accounts/', include('allauth.urls')),
     path('accounts/', include('accounts.urls')),
-    path('accounts/', include('django.contrib.auth.urls')),
     path('', include('store.urls', namespace='store')),
     path('blog/', include('blog.urls', namespace='blog')),
     path('dashboard/', include('dashboard.urls')),

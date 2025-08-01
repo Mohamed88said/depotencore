@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Créer un compte{% endblock %}
+
+{% block extra_css %}
+<style>
+    .choice-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem 0;
+    }
+    
+    .choice-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        height: 100%;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .choice-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .choice-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .buyer-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .buyer-card:hover {
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .vendor-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .vendor-card:hover {
+        color: white;
+        border-color: #f093fb;
+    }
+    
+    .feature-list {
+        text-align: left;
+        margin-top: 1.5rem;
+    }
+    
+    .feature-list li {
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .feature-list i {
+        margin-right: 0.5rem;
+        width: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container choice-container">
+    <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold mb-3">Rejoignez LuxeShop</h1>
+        <p class="lead text-muted">Choisissez le type de compte qui vous correspond</p>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Carte Acheteur -->
+        <div class="col-md-6">
+            <a href="{% url 'accounts:buyer_signup' %}" class="choice-card buyer-card d-block">
+                <div class="choice-icon">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <h3 class="mb-3">Je veux acheter</h3>
+                <p class="mb-3">Découvrez et achetez des produits de qualité</p>
+                
+                <ul class="feature-list list-unstyled">
+                    <li><i class="fas fa-check"></i> Parcourir tous les produits</li>
+                    <li><i class="fas fa-check"></i> Paiement sécurisé à la livraison</li>
+                    <li><i class="fas fa-check"></i> Suivi de commandes en temps réel</li>
+                    <li><i class="fas fa-check"></i> Système de favoris</li>
+                    <li><i class="fas fa-check"></i> Avis et évaluations</li>
+                    <li><i class="fas fa-check"></i> Support client</li>
+                </ul>
+                
+                <div class="mt-4">
+                    <span class="btn btn-light btn-lg">Créer mon compte acheteur</span>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Carte Vendeur -->
+        <div class="col-md-6">
+            <a href="{% url 'accounts:vendor_signup' %}" class="choice-card vendor-card d-block">
+                <div class="choice-icon">
+                    <i class="fas fa-store"></i>
+                </div>
+                <h3 class="mb-3">Je veux vendre</h3>
+                <p class="mb-3">Créez votre boutique et vendez vos produits</p>
+                
+                <ul class="feature-list list-unstyled">
+                    <li><i class="fas fa-check"></i> Boutique personnalisée</li>
+                    <li><i class="fas fa-check"></i> Gestion complète des produits</li>
+                    <li><i class="fas fa-check"></i> Dashboard vendeur avancé</li>
+                    <li><i class="fas fa-check"></i> Système de livraison intégré</li>
+                    <li><i class="fas fa-check"></i> Statistiques détaillées</li>
+                    <li><i class="fas fa-check"></i> Commission compétitive</li>
+                </ul>
+                
+                <div class="mt-4">
+                    <span class="btn btn-light btn-lg">Créer ma boutique</span>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <div class="text-center mt-5">
+        <p class="text-muted">
+            Déjà un compte ? 
+            <a href="{% url 'account_login' %}" class="text-primary">Connectez-vous ici</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

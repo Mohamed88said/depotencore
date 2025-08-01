@@ -103,6 +103,7 @@ urlpatterns = [
     path('vendor/delivery/select/<int:order_id>/', views.select_delivery_person, name='select_delivery_person'),
     path('vendor/delivery/marketplace/<int:order_id>/', views.publish_to_marketplace, name='publish_to_marketplace'),
     path('vendor/delivery/cancel/<int:order_id>/', views.cancel_delivery_assignment, name='cancel_delivery_assignment'),
+    path('vendor/orders/pending/', views.vendor_pending_orders, name='vendor_pending_orders'),
     
     # === URLs marketplace livreur ===
     path('delivery/marketplace/', views.delivery_marketplace, name='delivery_marketplace'),

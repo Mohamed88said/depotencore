@@ -269,13 +269,13 @@ class CheckoutForm(forms.Form):
     # Mode de paiement futur
     preferred_payment_method = forms.ChoiceField(
         choices=[
-            ('cash', 'Espèces'),
+            ('cash', 'Espèces à la livraison'),
             ('card', 'Carte bancaire'),
             ('paypal', 'PayPal')
         ],
         widget=forms.RadioSelect(attrs={'class': 'btn-check'}),
         initial='cash',
-        label="Comment souhaitez-vous payer à la livraison ?"
+        label="Méthode de paiement préférée"
     )
     
     # Qui paie la commission de livraison

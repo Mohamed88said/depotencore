@@ -147,7 +147,7 @@
                 
                 <!-- Paiement en espèces -->
                 {% if can_pay_cash %}
-                <div class="payment-method-card" onclick="selectPaymentMethod('cash')" id="cash-method">
+                <div class="payment-method-card selected" 
                     <div class="d-flex align-items-center">
                         <div class="me-3">
                             <i class="fas fa-money-bill-wave fa-2x text-success"></i>
@@ -155,9 +155,7 @@
                         <div class="flex-grow-1">
                             <h6 class="mb-1">Paiement en espèces</h6>
                             <p class="text-muted mb-0">Payez directement au livreur en liquide</p>
-                            {% if qr_code.preferred_payment_method == 'cash' %}
-                                <small class="text-success"><i class="fas fa-check me-1"></i>Méthode préférée</small>
-                            {% endif %}
+                            <small class="text-success"><i class="fas fa-check me-1"></i>Recommandé</small>
                         </div>
                     </div>
                     <input type="radio" name="payment_method" value="cash" class="d-none" id="payment_cash">
@@ -166,7 +164,7 @@
                 
                 <!-- Paiement par carte -->
                 {% if can_pay_card %}
-                <div class="payment-method-card {% if not can_pay_cash %}{% endif %}" onclick="selectPaymentMethod('card')" id="card-method">
+                <div class="payment-method-card" 
                     <div class="d-flex align-items-center">
                         <div class="me-3">
                             <i class="fas fa-credit-card fa-2x text-primary"></i>
@@ -185,7 +183,7 @@
                 
                 <!-- Paiement PayPal -->
                 {% if can_pay_paypal %}
-                <div class="payment-method-card" onclick="selectPaymentMethod('paypal')" id="paypal-method">
+                <div class="payment-method-card" 
                     <div class="d-flex align-items-center">
                         <div class="me-3">
                             <i class="fab fa-paypal fa-2x text-info"></i>
@@ -231,12 +229,6 @@
                                 </label>
                             </div>
                         </div>
-                        
-                        <div class="alert alert-warning">
-                            <small>
-                                <i class="fas fa-exclamation-triangle me-1"></i>
-                                Les deux parties doivent confirmer pour finaliser le paiement
-                            </small>
                         </div>
                     </div>
                 </div>
@@ -309,7 +301,7 @@
 </div>
 
 <script>
-let selectedPaymentMethod = null;
+let selectedPaymentMethod = 'cash'; // Par défaut espèces
 
 function selectPaymentMethod(method) {
     selectedPaymentMethod = method;

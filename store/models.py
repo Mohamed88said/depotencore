@@ -218,6 +218,9 @@ class Order(models.Model):
     ]
     PAYMENT_METHODS = [
         ('cod', 'Paiement à la livraison'),
+        ('cash', 'Espèces à la livraison'),
+        ('card', 'Carte à la livraison'),
+        ('paypal', 'PayPal à la livraison'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')

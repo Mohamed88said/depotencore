@@ -11,6 +11,9 @@ from PIL.ExifTags import TAGS, GPSTAGS
 import os
 import uuid
 from datetime import timedelta
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 # === Modèle Category ===
 class Category(models.Model):
@@ -23,6 +26,85 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+
+# === Modèle SellerStats ===
+class SellerStats(models.Model):
+    """Statistiques du vendeur mises à jour en temps réel"""
+    seller = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller_stats')
+    
+    # Statistiques de vente
+    total_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_orders = models.PositiveIntegerField(default=0)
+    total_products_sold = models.PositiveIntegerField(default=0)
+    
+    # Statistiques produits
+    total_products = models.PositiveIntegerField(default=0)
+    active_products = models.PositiveIntegerField(default=0)
+    out_of_stock_products = models.PositiveIntegerField(default=0)
+    
+    # Statistiques clients
+    total_customers = models.PositiveIntegerField(default=0)
+    repeat_customers = models.PositiveIntegerField(default=0)
+    
+    # Évaluations
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    total_reviews = models.PositiveIntegerField(default=0)
+    
+    # Métadonnées
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Statistiques vendeur"
+        verbose_name_plural = "Statistiques vendeurs"
+    
+    def __str__(self):
+        return f"Stats de {self.seller.username}"
+    
+    def update_stats(self):
+        """Met à jour toutes les statistiques"""
+        from django.db.models import Sum, Count, Avg
+        
+        # Statistiques de vente
+        sales_data = OrderItem.objects.filter(
+            product__seller=self.seller,
+            order__status='delivered'
+        ).aggregate(
+            total_sales=Sum('price'),
+            total_products_sold=Sum('quantity')
+        )
+        
+        self.total_sales = sales_data['total_sales'] or 0
+        self.total_products_sold = sales_data['total_products_sold'] or 0
+        
+        # Nombre de commandes
+        self.total_orders = Order.objects.filter(
+            items__product__seller=self.seller
+        ).distinct().count()
+        
+        # Statistiques produits
+        products = Product.objects.filter(seller=self.seller)
+        self.total_products = products.count()
+        self.active_products = products.filter(
+            is_sold=False,
+            sold_out=False,
+            stock__gt=0
+        ).count()
+        self.out_of_stock_products = products.filter(
+            models.Q(stock=0) | models.Q(sold_out=True)
+        ).count()
+        
+        # Clients uniques
+        self.total_customers = Order.objects.filter(
+            items__product__seller=self.seller
+        ).values('user').distinct().count()
+        
+        # Évaluations
+        ratings = SellerRating.objects.filter(seller=self.seller)
+        if ratings.exists():
+            self.average_rating = ratings.aggregate(avg=Avg('rating'))['avg'] or 0
+            self.total_reviews = ratings.count()
+        
+        self.save()
 
 # === Modèle Discount ===
 class Discount(models.Model):

@@ -1531,6 +1531,250 @@ def vendor_pending_orders(request):
     }
     return render(request, 'store/vendor_pending_orders.html', context)
 
+# === FONCTIONS DE LIVRAISON MANQUANTES ===
+
+@login_required
+def reject_delivery_assignment(request, assignment_id):
+    """Rejeter une assignation de livraison"""
+    try:
+        assignment = get_object_or_404(DeliveryAssignment, id=assignment_id, delivery_person=request.user)
+        assignment.status = 'cancelled'
+        assignment.save()
+        messages.success(request, "Livraison annulée avec succès.")
+    except Exception as e:
+        messages.error(request, f"Erreur lors de l'annulation : {str(e)}")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def mark_picked_up(request, assignment_id):
+    """Marquer une livraison comme récupérée"""
+    try:
+        assignment = get_object_or_404(DeliveryAssignment, id=assignment_id, delivery_person=request.user)
+        assignment.mark_picked_up()
+        assignment.order.status = 'out_for_delivery'
+        assignment.order.save()
+        messages.success(request, "Commande marquée comme récupérée.")
+    except Exception as e:
+        messages.error(request, f"Erreur : {str(e)}")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def complete_delivery_assignment(request, assignment_id):
+    """Terminer une assignation de livraison"""
+    try:
+        assignment = get_object_or_404(DeliveryAssignment, id=assignment_id, delivery_person=request.user)
+        assignment.mark_delivered()
+        assignment.order.status = 'delivered'
+        assignment.order.save()
+        messages.success(request, "Livraison terminée avec succès.")
+    except Exception as e:
+        messages.error(request, f"Erreur : {str(e)}")
+    return redirect('store:delivery_marketplace')
+
+@login_required
+def delivery_marketplace(request):
+    """Marketplace des livraisons pour les livreurs"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    # Assignations disponibles
+    available_assignments = DeliveryAssignment.objects.filter(
+        status='pending',
+        expires_at__gt=timezone.now()
+    ).select_related('order', 'vendor')
+    
+    # Mes assignations
+    my_assignments = DeliveryAssignment.objects.filter(
+        delivery_person=request.user
+    ).exclude(status__in=['cancelled', 'expired']).select_related('order', 'vendor')
+    
+    context = {
+        'available_assignments': available_assignments,
+        'my_assignments': my_assignments,
+    }
+    return render(request, 'store/delivery_marketplace.html', context)
+
+@login_required
+def delivery_profile_management(request):
+    """Gestion du profil livreur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    profile, created = DeliveryProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        profile.phone_number = request.POST.get('phone_number', '')
+        profile.vehicle_type = request.POST.get('vehicle_type', '')
+        profile.license_number = request.POST.get('license_number', '')
+        profile.is_available = request.POST.get('is_available') == 'on'
+        profile.save()
+        messages.success(request, "Profil mis à jour avec succès.")
+        return redirect('store:delivery_profile_management')
+    
+    # Statistiques
+    total_earnings = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status='delivered'
+    ).aggregate(total=models.Sum('commission_amount'))['total'] or 0
+    
+    pending_assignments = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status__in=['accepted', 'picked_up']
+    ).count()
+    
+    context = {
+        'profile': profile,
+        'total_earnings': total_earnings,
+        'pending_assignments': pending_assignments,
+    }
+    return render(request, 'store/delivery_profile.html', context)
+
+@login_required
+def delivery_dashboard(request):
+    """Tableau de bord livreur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    delivery_profile, created = DeliveryProfile.objects.get_or_create(user=request.user)
+    
+    # Statistiques
+    total_deliveries = delivery_profile.total_deliveries
+    today_deliveries = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        delivered_at__date=timezone.now().date()
+    ).count()
+    
+    pending_deliveries = DeliveryAssignment.objects.filter(
+        delivery_person=request.user,
+        status__in=['accepted', 'picked_up']
+    ).count()
+    
+    available_orders = DeliveryAssignment.objects.filter(
+        status='pending',
+        expires_at__gt=timezone.now()
+    ).count()
+    
+    context = {
+        'delivery_profile': delivery_profile,
+        'total_deliveries': total_deliveries,
+        'today_deliveries': today_deliveries,
+        'pending_deliveries': pending_deliveries,
+        'available_orders': available_orders,
+    }
+    return render(request, 'store/delivery_dashboard.html', context)
+
+@login_required
+def delivery_orders(request):
+    """Commandes de livraison pour les livreurs"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    # Mes livraisons assignées
+    assigned_orders = Order.objects.filter(
+        delivery_person=request.user
+    ).exclude(status='delivered').select_related('user', 'shipping_address')
+    
+    # Commandes disponibles
+    available_orders = Order.objects.filter(
+        delivery_person__isnull=True,
+        status__in=['processing', 'shipped']
+    ).select_related('user', 'shipping_address')
+    
+    context = {
+        'assigned_orders': assigned_orders,
+        'available_orders': available_orders,
+    }
+    return render(request, 'store/delivery_orders.html', context)
+
+@login_required
+def accept_delivery(request, order_id):
+    """Accepter une livraison"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    try:
+        order = get_object_or_404(Order, id=order_id, delivery_person__isnull=True)
+        order.delivery_person = request.user
+        order.delivery_assigned_at = timezone.now()
+        order.status = 'shipped'
+        order.save()
+        messages.success(request, f"Livraison de la commande #{order.id} acceptée.")
+    except Exception as e:
+        messages.error(request, f"Erreur : {str(e)}")
+    
+    return redirect('store:delivery_orders')
+
+@login_required
+def start_delivery(request, order_id):
+    """Démarrer une livraison"""
+    try:
+        order = get_object_or_404(Order, id=order_id, delivery_person=request.user)
+        order.delivery_started_at = timezone.now()
+        order.status = 'out_for_delivery'
+        order.save()
+        messages.success(request, "Livraison démarrée.")
+    except Exception as e:
+        messages.error(request, f"Erreur : {str(e)}")
+    
+    return redirect('store:delivery_orders')
+
+@login_required
+def complete_delivery(request, order_id):
+    """Terminer une livraison"""
+    try:
+        order = get_object_or_404(Order, id=order_id, delivery_person=request.user)
+        order.delivery_completed_at = timezone.now()
+        order.status = 'delivered'
+        order.save()
+        
+        # Mettre à jour les statistiques du livreur
+        delivery_profile = request.user.delivery_profile
+        delivery_profile.total_deliveries += 1
+        delivery_profile.save()
+        
+        messages.success(request, "Livraison terminée avec succès.")
+    except Exception as e:
+        messages.error(request, f"Erreur : {str(e)}")
+    
+    return redirect('store:delivery_orders')
+
+@login_required
+def update_delivery_location(request):
+    """Mettre à jour la position du livreur"""
+    if request.user.user_type != 'delivery':
+        return JsonResponse({'error': 'Accès refusé'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            if latitude and longitude:
+                delivery_profile = request.user.delivery_profile
+                delivery_profile.update_location(latitude, longitude)
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'error': 'Coordonnées manquantes'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+@login_required
+def delivery_profile(request):
+    """Page de profil livreur"""
+    if request.user.user_type != 'delivery':
+        messages.error(request, "Accès réservé aux livreurs.")
+        return redirect('store:home')
+    
+    return render(request, 'store/delivery_profile.html')
+
 
 def custom_404(request, exception):
     """Page 404 personnalisée"""

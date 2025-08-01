@@ -28,8 +28,18 @@
                     </li>
                     {% if user.user_type == 'seller' %}
                     <li class="nav-item">
+                        <a class="nav-link text-white {% if request.resolver_match.url_name == 'vendor_pending_orders' %}active{% endif %}" href="{% url 'store:vendor_pending_orders' %}">
+                            <i class="fas fa-clock me-2"></i> Commandes en attente
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link text-white {% if request.resolver_match.url_name == 'seller_order_list' %}active{% endif %}" href="{% url 'store:seller_order_list' %}">
-                            <i class="fas fa-store me-2"></i> Commandes vendeur
+                            <i class="fas fa-list-alt me-2"></i> Toutes mes commandes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white {% if request.resolver_match.url_name == 'delivery_marketplace' %}active{% endif %}" href="{% url 'store:delivery_marketplace' %}">
+                            <i class="fas fa-motorcycle me-2"></i> Marketplace livreurs
                         </a>
                     </li>
                     {% endif %}

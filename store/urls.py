@@ -94,8 +94,8 @@ urlpatterns = [
     path('delivery/scan/<str:code>/process/', views.process_qr_payment, name='process_qr_payment'),
     path('delivery/scan/<str:code>/confirm/', views.delivery_confirmation, name='delivery_confirmation'),
     path('delivery/qr/<int:order_id>/', views.view_qr_code, name='view_qr_code'),
-    path('payment/stripe/confirm/', views.confirm_stripe_payment, name='confirm_stripe_payment'),
     path('payment/verify/<int:order_id>/', views.payment_verification, name='payment_verification'),
+    path('payment/stripe/confirm/', views.confirm_stripe_payment, name='confirm_stripe_payment'),
     path('vendor/orders/pending/', views.vendor_pending_orders, name='vendor_pending_orders'),
     
     # === URLs interface vendeur livraison ===

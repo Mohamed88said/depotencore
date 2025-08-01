@@ -1,7 +1,6 @@
 /* Surcharge pour -webkit-text-size-adjust */
 body {
     -webkit-text-size-adjust: 100%; /* Compatible avec WebKit et navigateurs mobiles */
-    text-size-adjust: 100%; /* Propriété standard pour Chrome 54+, Edge 79+ */
 }
 
 /* Surcharge pour text-align: -webkit-match-parent */

@@ -1384,6 +1384,153 @@ def geocode(request):
         return JsonResponse({'status': 'error', 'message': str(e)})
 
 # === VUES D'ERREUR ===
+def cancel_delivery_assignment(request, order_id):
+    """Annule l'assignation de livraison"""
+    if not request.user.is_authenticated:
+        return redirect('account_login')
+    
+    order = get_object_or_404(Order, id=order_id, seller=request.user)
+    
+    # Supprimer l'assignation existante
+    DeliveryAssignment.objects.filter(order=order).delete()
+    
+    messages.success(request, f"Assignation de livraison annulée pour la commande #{order_id}")
+    return redirect('store:vendor_pending_orders')
+
+def publish_to_marketplace(request, order_id):
+    """Publie une commande sur le marketplace des livreurs"""
+    if not request.user.is_authenticated:
+        return redirect('account_login')
+    
+    order = get_object_or_404(Order, id=order_id, seller=request.user)
+    
+    if request.method == 'POST':
+        commission_bonus = float(request.POST.get('commission_bonus', 0))
+        vendor_instructions = request.POST.get('vendor_instructions', '')
+        
+        # Calculer la commission
+        distance_km = 10.0  # Distance par défaut
+        base_commission = distance_km * 2.0
+        total_commission = base_commission + commission_bonus
+        
+        # Créer l'assignation marketplace
+        assignment = DeliveryAssignment.objects.create(
+            order=order,
+            vendor=request.user,
+            commission_amount=total_commission,
+            commission_payer=order.commission_payer,
+            distance_km=distance_km,
+            vendor_instructions=vendor_instructions,
+            expires_at=timezone.now() + timedelta(hours=24)
+        )
+        
+        messages.success(request, f"Commande #{order_id} publiée sur le marketplace")
+        return redirect('store:vendor_pending_orders')
+    
+    context = {
+        'order': order,
+        'distance_km': 10.0,
+        'base_commission': 20.0,
+    }
+    return render(request, 'store/publish_marketplace.html', context)
+
+def select_delivery_person(request, order_id):
+    """Sélectionne un livreur spécifique"""
+    if not request.user.is_authenticated:
+        return redirect('account_login')
+    
+    order = get_object_or_404(Order, id=order_id, seller=request.user)
+    
+    if request.method == 'POST':
+        courier_id = request.POST.get('courier_id')
+        vendor_instructions = request.POST.get('vendor_instructions', '')
+        
+        if courier_id == 'marketplace':
+            return redirect('store:publish_to_marketplace', order_id=order_id)
+        
+        # Assigner à un livreur spécifique
+        courier = get_object_or_404(User, id=courier_id, user_type='delivery')
+        
+        assignment = DeliveryAssignment.objects.create(
+            order=order,
+            vendor=request.user,
+            delivery_person=courier,
+            commission_amount=20.0,
+            commission_payer=order.commission_payer,
+            distance_km=10.0,
+            vendor_instructions=vendor_instructions,
+            status='accepted',
+            accepted_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(hours=24)
+        )
+        
+        messages.success(request, f"Livreur {courier.username} assigné à la commande #{order_id}")
+        return redirect('store:vendor_pending_orders')
+    
+    # Récupérer les livreurs disponibles
+    available_couriers = User.objects.filter(
+        user_type='delivery',
+        is_active=True,
+        delivery_profile__is_available=True
+    )
+    
+    context = {
+        'order': order,
+        'available_couriers': available_couriers,
+    }
+    return render(request, 'store/select_delivery_person.html', context)
+
+def assign_delivery_choice(request, order_id):
+    """Page de choix du mode de livraison"""
+    if not request.user.is_authenticated:
+        return redirect('account_login')
+    
+    order = get_object_or_404(Order, id=order_id, seller=request.user)
+    
+    if request.method == 'POST':
+        delivery_choice = request.POST.get('delivery_choice')
+        
+        if delivery_choice == 'self':
+            # Le vendeur livre lui-même
+            order.delivery_person = request.user
+            order.delivery_assigned_at = timezone.now()
+            order.status = 'shipped'
+            order.save()
+            messages.success(request, f"Vous allez livrer la commande #{order_id} vous-même")
+        elif delivery_choice == 'courier':
+            # Rediriger vers la sélection de livreur
+            return redirect('store:select_delivery_person', order_id=order_id)
+        
+        return redirect('store:vendor_pending_orders')
+    
+    context = {
+        'order': order,
+        'distance_km': 10.0,
+        'commission': 20.0,
+        'available_couriers': 5,
+    }
+    return render(request, 'store/delivery_choice.html', context)
+
+def vendor_pending_orders(request):
+    """Liste des commandes en attente pour le vendeur"""
+    if not request.user.is_authenticated:
+        return redirect('account_login')
+    
+    if request.user.user_type != 'seller':
+        messages.error(request, "Accès réservé aux vendeurs")
+        return redirect('store:home')
+    
+    # Récupérer les commandes en attente
+    pending_orders = Order.objects.filter(
+        seller=request.user,
+        status__in=['pending', 'processing']
+    ).order_by('-created_at')
+    
+    context = {
+        'pending_orders': pending_orders,
+    }
+    return render(request, 'store/vendor_pending_orders.html', context)
+
 
 def custom_404(request, exception):
     """Page 404 personnalisée"""

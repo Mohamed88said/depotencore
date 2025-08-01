@@ -1588,9 +1588,16 @@ def delivery_marketplace(request):
     my_assignments = DeliveryAssignment.objects.filter(
         delivery_person=request.user
     ).exclude(status__in=['cancelled', 'expired']).select_related('order', 'vendor')
+        # Livreurs disponibles (pour vendeurs)
+        available_couriers = DeliveryProfile.objects.filter(
+            is_available=True,
+            user__is_active=True
+        ).select_related('user').order_by('-rating')
     
+        available_couriers = []
     context = {
         'available_assignments': available_assignments,
+        'available_couriers': available_couriers,
         'my_assignments': my_assignments,
     }
     return render(request, 'store/delivery_marketplace.html', context)

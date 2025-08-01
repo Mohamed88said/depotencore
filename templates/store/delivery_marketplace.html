@@ -110,6 +110,7 @@
     </ul>
     
     <div class="tab-content" id="deliveryTabsContent">
+        {% if user.user_type == 'delivery' %}
         <!-- Courses disponibles -->
         <div class="tab-pane fade show active" id="available" role="tabpanel">
             {% if available_assignments %}
@@ -238,9 +239,10 @@
                 </div>
             {% endif %}
         </div>
+        {% endif %}
         
-        <!-- Mes livraisons -->
-        <div class="tab-pane fade" id="my-deliveries" role="tabpanel">
+        <!-- Mes livraisons (livreurs) ou Mes assignations (vendeurs) -->
+        <div class="tab-pane fade {% if user.user_type == 'seller' %}show active{% endif %}" id="{% if user.user_type == 'delivery' %}my-deliveries{% else %}my-assignments{% endif %}" role="tabpanel">
             {% if my_assignments %}
                 {% for assignment in my_assignments %}
                 <div class="delivery-card my-delivery">
@@ -260,11 +262,11 @@
                                 <div class="col-md-6">
                                     <p class="mb-1">
                                         <i class="fas fa-store me-1"></i>
-                                        {{ assignment.vendor.username }}
+                                        {% if user.user_type == 'delivery' %}Vendeur: {% endif %}{{ assignment.vendor.username }}
                                     </p>
                                     <p class="mb-1">
                                         <i class="fas fa-user me-1"></i>
-                                        {{ assignment.order.user.username }}
+                                        {% if user.user_type == 'delivery' %}Client: {% endif %}{{ assignment.order.user.username }}
                                     </p>
                                 </div>
                                 <div class="col-md-6">
@@ -276,16 +278,27 @@
                                         <i class="fas fa-route me-1"></i>
                                         {{ assignment.distance_km }} km
                                     </p>
+                                    {% if assignment.delivery_person %}
+                                    <p class="mb-1">
+                                        <i class="fas fa-motorcycle me-1"></i>
+                                        Livreur: {{ assignment.delivery_person.username }}
+                                    </p>
+                                    {% endif %}
                                 </div>
                             </div>
                             
                             <small class="text-muted">
-                                Accepté {{ assignment.accepted_at|timesince }}
+                                {% if assignment.accepted_at %}
+                                    Accepté {{ assignment.accepted_at|timesince }}
+                                {% else %}
+                                    Créé {{ assignment.assigned_at|timesince }}
+                                {% endif %}
                             </small>
                         </div>
                         
                         <div class="col-md-4 text-end">
                             <div class="action-buttons">
+                                {% if user.user_type == 'delivery' %}
                                 {% if assignment.status == 'accepted' %}
                                     <a href="{% url 'store:mark_picked_up' assignment.id %}" 
                                        class="btn btn-warning">
@@ -309,6 +322,26 @@
                                         Terminé
                                     </span>
                                 {% endif %}
+                                {% else %}
+                                <!-- Actions pour vendeurs -->
+                                {% if assignment.status == 'pending' %}
+                                    <a href="{% url 'store:cancel_delivery_assignment' assignment.order.id %}" 
+                                       class="btn btn-outline-danger">
+                                        <i class="fas fa-times me-1"></i>
+                                        Annuler
+                                    </a>
+                                {% elif assignment.status == 'accepted' %}
+                                    <span class="text-info fw-bold">
+                                        <i class="fas fa-user-check me-1"></i>
+                                        Assigné à {{ assignment.delivery_person.username }}
+                                    </span>
+                                {% elif assignment.status == 'delivered' %}
+                                    <span class="text-success fw-bold">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        Livré
+                                    </span>
+                                {% endif %}
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -316,12 +349,87 @@
                 {% endfor %}
             {% else %}
                 <div class="text-center py-5">
+                    {% if user.user_type == 'delivery' %}
                     <i class="fas fa-motorcycle fa-4x text-muted mb-3"></i>
                     <h4 class="text-muted">Aucune livraison en cours</h4>
                     <p class="text-muted">Acceptez des courses dans l'onglet "Courses disponibles"</p>
+                    {% else %}
+                    <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">Aucune assignation créée</h4>
+                    <p class="text-muted">Créez des assignations depuis vos commandes en attente</p>
+                    <a href="{% url 'store:vendor_pending_orders' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Voir les commandes
+                    </a>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
+        
+        {% if user.user_type == 'seller' %}
+        <!-- Livreurs disponibles (pour vendeurs) -->
+        <div class="tab-pane fade" id="available-couriers" role="tabpanel">
+            <div class="row">
+                {% for courier in available_couriers %}
+                <div class="col-md-6 mb-3">
+                    <div class="courier-card">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if courier.user.profile.profile_picture %}
+                                    <img src="{{ courier.user.profile.profile_picture.url }}" 
+                                         class="courier-avatar" alt="{{ courier.user.username }}">
+                                {% else %}
+                                    <div class="courier-avatar bg-secondary d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-user text-white"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ courier.user.username }}</h6>
+                                <div class="rating-stars mb-1">
+                                    {% for i in "12345" %}
+                                        {% if i|add:0 <= courier.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="text-muted ms-1">({{ courier.rating }}/5)</span>
+                                </div>
+                                <div class="d-flex align-items-center text-muted">
+                                    {% if courier.vehicle_type == 'bike' %}
+                                        <i class="fas fa-bicycle vehicle-icon text-success"></i>
+                                    {% elif courier.vehicle_type == 'motorbike' %}
+                                        <i class="fas fa-motorcycle vehicle-icon text-primary"></i>
+                                    {% elif courier.vehicle_type == 'car' %}
+                                        <i class="fas fa-car vehicle-icon text-info"></i>
+                                    {% elif courier.vehicle_type == 'van' %}
+                                        <i class="fas fa-truck vehicle-icon text-warning"></i>
+                                    {% endif %}
+                                    <span>{{ courier.get_vehicle_type_display }}</span>
+                                </div>
+                                <small class="text-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    {{ courier.total_deliveries }} livraisons
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <div class="badge bg-success">Disponible</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">Aucun livreur disponible</h4>
+                        <p class="text-muted">Tous les livreurs sont actuellement occupés</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -119,7 +119,11 @@
                         <div class="detail-row">
                             <span><strong>Mode de livraison :</strong></span>
                             <span>
-                                <i class="fas fa-{{ order.delivery_mode == 'home' and 'home' or 'store' }} me-1"></i>
+                                {% if order.delivery_mode == 'home' %}
+                                    <i class="fas fa-home me-1"></i>
+                                {% else %}
+                                    <i class="fas fa-store me-1"></i>
+                                {% endif %}
                                 {{ order.get_delivery_mode_display }}
                             </span>
                         </div>

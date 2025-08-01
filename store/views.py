@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, Http404
@@ -15,6 +16,8 @@ from django.db import transaction
 from decimal import Decimal
 import json
 import requests
+
+User = get_user_model()
 import uuid
 from datetime import timedelta
 
@@ -869,6 +872,39 @@ def delivery_confirmation(request, code):
         'qr_code': qr_code,
     }
     return render(request, 'store/delivery_confirmation.html', context)
+
+def confirm_stripe_payment(request):
+    """Confirme le paiement Stripe"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            payment_intent_id = data.get('payment_intent_id')
+            qr_code_str = data.get('qr_code')
+            
+            # Récupérer le QR Code
+            qr_code = get_object_or_404(QRDeliveryCode, code=qr_code_str)
+            order = qr_code.order
+            
+            # Marquer la commande comme payée
+            order.status = 'delivered'
+            order.charge_id = payment_intent_id
+            order.save()
+            
+            # Marquer le QR Code comme utilisé
+            qr_code.mark_as_used()
+            
+            return JsonResponse({
+                'success': True,
+                'redirect_url': reverse('store:payment_success', args=[order.id])
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
 
 def payment_verification(request, order_id):
     """Vérifier le statut de paiement"""

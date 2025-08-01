@@ -476,6 +476,11 @@ class OrderProcessViewsTest(TestCase):
         except AttributeError:
             # Si la méthode get_delivery_mode_display n'existe pas, on passe
             pass
+        
+        # Test paiement espèces
+        print("9. Test paiement espèces...")
+        payment_data = {
+            'payment_method': 'cash',
             'customer_confirms': 'true',
             'delivery_confirms': 'true'
         }

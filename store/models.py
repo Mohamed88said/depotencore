@@ -218,9 +218,6 @@ class Order(models.Model):
     ]
     PAYMENT_METHODS = [
         ('cod', 'Paiement à la livraison'),
-        ('cash', 'Espèces à la livraison'),
-        ('card', 'Carte à la livraison'),
-        ('paypal', 'PayPal à la livraison'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')
@@ -234,7 +231,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='card')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cod')
     charge_id = models.CharField(max_length=100, null=True, blank=True)
     
     # Géolocalisation
@@ -254,6 +251,13 @@ class Order(models.Model):
     delivery_assigned_at = models.DateTimeField(null=True, blank=True)
     delivery_started_at = models.DateTimeField(null=True, blank=True)
     delivery_completed_at = models.DateTimeField(null=True, blank=True)
+    
+    def get_payment_method_display_custom(self):
+        """Affichage personnalisé pour la méthode de paiement"""
+        if self.payment_method == 'cod':
+            return 'Paiement à la livraison'
+        return self.get_payment_method_display()
+    
     class Meta:
         verbose_name = "Commande"
         verbose_name_plural = "Commandes"

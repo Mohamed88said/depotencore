@@ -14,6 +14,7 @@
                             <h5 class="mb-1">Commande #{{ order.id }} - {{ order.created_at|date:"d/m/Y H:i" }}</h5>
                             <p class="mb-1"><strong>Total :</strong> {{ order.total }} €</p>
                             <p class="mb-1"><strong>Statut :</strong> {{ order.get_status_display }}</p>
+                            <p class="mb-1"><strong>Paiement :</strong> À la livraison</p>
                         </div>
                         <div>
                             <button class="btn btn-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#orderModal{{ order.id }}">Voir les détails</button>

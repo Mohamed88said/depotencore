@@ -3,8 +3,12 @@
 {% block title %}Accueil{% endblock %}
 {% block content %}
     <div class="jumbotron text-center py-5 bg-light rounded">
-        <h1 class="display-4">Bienvenue sur notre site e-commerce !</h1>
-        <p class="lead">Découvrez une large gamme de produits et profitez d'une expérience d'achat exceptionnelle.</p>
+        <h1 class="display-4">Bienvenue sur LuxeShop !</h1>
+        <p class="lead">Découvrez une large gamme de produits avec paiement à la livraison sécurisé.</p>
+        <div class="alert alert-info d-inline-block">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Paiement uniquement à la livraison</strong> - Payez en toute sécurité lors de la réception
+        </div>
         <a href="{% url 'store:product_list' %}" class="btn btn-primary btn-lg mt-3">Voir les produits</a>
         {% if user.is_authenticated and user.user_type == 'seller' %}
             <a href="{% url 'store:product_create' %}" class="btn btn-success btn-lg mt-3 ms-2">Ajouter un produit</a>
